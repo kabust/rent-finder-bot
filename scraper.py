@@ -4,6 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
+from utils import convert_utc_to_local
 
 load_dotenv()
 
@@ -26,7 +27,7 @@ def get_last_50_items():
 
         location_date = item.find("p", {"class": "css-1mwdrlh"}).text.split(" - ")
         location = location_date[0]
-        publication_time = location_date[-1].split(" o ")[-1]
+        publication_time = convert_utc_to_local(location_date[-1].split(" o ")[-1])
 
         size = item.find("span", {"class": "css-1cd0guq"}).text
 

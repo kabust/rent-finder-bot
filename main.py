@@ -3,7 +3,6 @@ import os
 import logging
 import sys
 
-from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, html
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -12,17 +11,21 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
-from aiogram.utils.formatting import TextLink
+from dotenv import load_dotenv
 
-from db import (
-    get_user,
+from db.user_handler import (
     write_user,
+    get_user,
     delete_user,
     update_user_city,
     get_all_users_with_city,
 )
+from db.sent_ads_handler import (
+    write_ad,
+    filter_ads
+)
 from scraper import get_last_50_items
-from utils import are_cities_similar, convert_utc_to_local
+from utils import are_cities_similar
 
 
 load_dotenv()
@@ -53,20 +56,26 @@ async def send_scheduled_message():
 
 async def send_items(user: tuple, items: list) -> None:
     for item in items:
-        if not are_cities_similar(user[-1], item["location"]):
+        if not are_cities_similar(user["city"], item["location"]):
             continue
 
         title = item["title"]
         price = item["price"]
         location = item["location"]
-        publication_time = convert_utc_to_local(item["publication_time"])
+        publication_time = item["publication_time"]
         size = item["size"]
         item_link = item["item_link"]
+
+        ads_seen_by_user = filter_ads(user["user_id"])
+        if item_link in ads_seen_by_user:
+            continue
+        else:
+            write_ad(user["user_id"], item_link)
 
         text = f'<strong><a href="{item_link}">{title}</a></strong>\n \
         \n{price} | {size}\n{location} - Published at {publication_time}\n'
 
-        await bot.send_message(user[1], text)
+        await bot.send_message(user["chat_id"], text)
 
 
 @dp.message(CommandStart())
@@ -95,12 +104,37 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
     else:
         await message.answer(
             f"Hi again, {html.bold(message.from_user.first_name)}!\
-            \nYour city is already set to {user[-1]}"
+            \nYour city is already set to {user[-1]}\
+            \n{html.italic('/update_city')}"
         )
 
     if not hasattr(dp, "scheduled_task"):
         print("setting scheduled task")
         dp.scheduled_task = asyncio.create_task(send_scheduled_message())
+
+
+@dp.message(Command("update_city"))
+async def command_update_city_handler(message: Message, state: FSMContext) -> None:
+    """
+    This handler receives messages with `/update_city` command
+    """
+    await message.answer(
+        f"Please, provide your city in polish:\n"
+        f"{html.italic('/cancel')}"
+    )
+    await state.set_state(Form.waiting_for_first_message)
+
+    if not hasattr(dp, "scheduled_task"):
+        print("setting scheduled task")
+        dp.scheduled_task = asyncio.create_task(send_scheduled_message())
+
+
+@dp.message(Command("cancel"))
+async def command_cancel_handler(message: Message, state: FSMContext) -> None:
+    """
+    This handler receives messages with `/cancel` command
+    """
+    await state.clear()
 
 
 @dp.message(Form.waiting_for_first_message)

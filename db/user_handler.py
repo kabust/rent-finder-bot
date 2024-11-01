@@ -1,26 +1,4 @@
-import sqlite3
-
-
-con = sqlite3.connect("db.sqlite")
-cur = con.cursor()
-
-try:
-    cur.execute("SELECT * FROM users")
-except Exception as e:
-    print(e)
-    cur.execute(
-        """
-        CREATE TABLE users(
-            user_id INTEGER NOT NULL,
-            chat_id INTEGER NOT NULL,
-            full_name VARCHAR(50), 
-            username VARCHAR(50), 
-            is_bot BOOLEAN, 
-            city VARCHAR(50), 
-            PRIMARY KEY(user_id)
-        )
-        """
-    )
+from db.config import con, cur
 
 
 def get_user(user_id: int):
@@ -53,11 +31,13 @@ def write_user(
     is_bot: bool,
     city: str | None = None,
 ):
-    cur.execute(
+    user = cur.execute(
         "INSERT INTO users VALUES (?, ?, ?, ?, ?, ?)",
         [user_id, chat_id, full_name, username, is_bot, city],
     )
+
     con.commit()
+    return user.fetchone()
 
 
 def delete_user(user_id: int):
