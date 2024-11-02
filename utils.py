@@ -1,3 +1,4 @@
+import unicodedata
 import pytz
 
 from datetime import datetime, date
@@ -18,3 +19,10 @@ def convert_utc_to_local(utc_time_str, local_timezone="Europe/Warsaw"):
 
     local_time = utc_time.astimezone(pytz.timezone(local_timezone))
     return local_time.time().strftime("%H:%M")
+
+
+def remove_accents(text):
+    # Normalize the text to separate accents from letters
+    normalized_text = unicodedata.normalize('NFD', text)
+    # Filter out the accent characters
+    return ''.join(char for char in normalized_text if unicodedata.category(char) != 'Mn')

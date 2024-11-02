@@ -8,17 +8,18 @@ from utils import convert_utc_to_local
 
 load_dotenv()
 
-url = os.getenv("OLX_URL")
+url_template = os.getenv("OLX_URL")
 
 
-def get_last_50_items():
+def get_last_50_items(city: str) -> dict:
+    url = url_template.replace("{{city}}", city)
     response = requests.get(url)
     response = BeautifulSoup(response.content, "html.parser")
     items = response.find_all("div", {"class": "css-1sw7q4x"})
 
     results = []
 
-    for item in items[:50]:
+    for item in items[0:50:-1]:
         if item.select_one("[class=css-1dyfc0k]"):
             continue
 
@@ -48,3 +49,9 @@ def get_last_50_items():
         )
 
     return results
+
+
+def verify_city(city: str) -> bool:
+    url = url_template.replace("{{city}}", city)
+    response = requests.get(url)
+    return response.status_code == 200

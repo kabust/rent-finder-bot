@@ -48,3 +48,9 @@ def delete_user(user_id: int):
 def update_user_city(user_id: int, new_city: str):
     cur.execute("UPDATE users SET city = (?) WHERE user_id = (?)", [new_city, user_id])
     con.commit()
+
+
+def get_unique_cities():
+    query = cur.execute("SELECT DISTINCT city FROM users")
+    cities = set(raw["city"] for raw in query.fetchall())
+    return cities

@@ -14,6 +14,7 @@ from aiogram.types import Message
 from dotenv import load_dotenv
 
 from db.user_handler import (
+    get_unique_cities,
     write_user,
     get_user,
     delete_user,
@@ -24,8 +25,8 @@ from db.sent_ads_handler import (
     write_ad,
     filter_ads
 )
-from scraper import get_last_50_items
-from utils import are_cities_similar
+from scraper import get_last_50_items, verify_city
+from utils import are_cities_similar, remove_accents
 
 
 load_dotenv()
@@ -42,23 +43,23 @@ class Form(StatesGroup):
 
 
 async def send_scheduled_message():
-    await asyncio.sleep(10)
     while True:
         users = get_all_users_with_city()
-        items = get_last_50_items()
+        unique_cities = get_unique_cities()
+
+        items = {}
+        for city in unique_cities:
+            items[city] = get_last_50_items(city)
 
         for user in users:
-            print(f"awaiting for {user}")
             await send_items(user, items)
 
         await asyncio.sleep(300)
 
 
 async def send_items(user: tuple, items: list) -> None:
-    for item in items:
-        if not are_cities_similar(user["city"], item["location"]):
-            continue
-
+    logging.log(20, f"Sending {len(items[user["city"]])} items for user {user["user_id"]}")
+    for item in items[user["city"]]:
         title = item["title"]
         price = item["price"]
         location = item["location"]
@@ -67,6 +68,7 @@ async def send_items(user: tuple, items: list) -> None:
         item_link = item["item_link"]
 
         ads_seen_by_user = filter_ads(user["user_id"])
+
         if item_link in ads_seen_by_user:
             continue
         else:
@@ -74,7 +76,6 @@ async def send_items(user: tuple, items: list) -> None:
 
         text = f'<strong><a href="{item_link}">{title}</a></strong>\n \
         \n{price} | {size}\n{location} - Published at {publication_time}\n'
-
         await bot.send_message(user["chat_id"], text)
 
 
@@ -84,6 +85,8 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
     This handler receives messages with `/start` command
     """
     user_id = message.from_user.id
+    logging.log(20, f"Received /start from user {user_id}")
+
     user = get_user(user_id)
     if not user:
         write_user(
@@ -104,7 +107,7 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
     else:
         await message.answer(
             f"Hi again, {html.bold(message.from_user.first_name)}!\
-            \nYour city is already set to {user[-1]}\
+            \nYour city is already set to {user["city"].capitalize()}\
             \n{html.italic('/update_city')}"
         )
 
@@ -124,15 +127,11 @@ async def command_update_city_handler(message: Message, state: FSMContext) -> No
     )
     await state.set_state(Form.waiting_for_first_message)
 
-    if not hasattr(dp, "scheduled_task"):
-        print("setting scheduled task")
-        dp.scheduled_task = asyncio.create_task(send_scheduled_message())
-
 
 @dp.message(Command("cancel"))
 async def command_cancel_handler(message: Message, state: FSMContext) -> None:
     """
-    This handler receives messages with `/cancel` command
+    This handler clears the state
     """
     await state.clear()
 
@@ -140,10 +139,14 @@ async def command_cancel_handler(message: Message, state: FSMContext) -> None:
 @dp.message(Form.waiting_for_first_message)
 async def set_city(message: Message, state: FSMContext) -> None:
     city = message.text.capitalize()
-    update_user_city(message.from_user.id, city)
+    city_normalized = remove_accents("NFD", message.text.lower()).replace(" ", "-")
 
-    await message.answer(f"Thank you! Your city was set to {html.bold(city)}")
-    await state.clear()
+    if not verify_city(city_normalized):
+        await message.answer(f"I couldn't set the city to {city} because it wasn't found on OLX, try again or /cancel")
+    else:
+        update_user_city(message.from_user.id, city_normalized)
+        await message.answer(f"Thank you! Your city was set to {html.bold(city)}, now sit back and wait for new links ;)")
+        await state.clear()
 
 
 @dp.message()
