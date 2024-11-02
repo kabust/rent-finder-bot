@@ -105,9 +105,10 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
         await state.set_state(Form.waiting_for_first_message)
 
     else:
+        city = user.get("city", "None")
         await message.answer(
             f"Hi again, {html.bold(message.from_user.first_name)}!\
-            \nYour city is already set to {user["city"].capitalize()}\
+            \nYour city is already set to {city.capitalize()}\
             \n{html.italic('/update_city')}"
         )
 
