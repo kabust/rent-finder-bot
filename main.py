@@ -139,7 +139,7 @@ async def command_cancel_handler(message: Message, state: FSMContext) -> None:
 @dp.message(Form.waiting_for_first_message)
 async def set_city(message: Message, state: FSMContext) -> None:
     city = message.text.capitalize()
-    city_normalized = remove_accents("NFD", message.text.lower()).replace(" ", "-")
+    city_normalized = remove_accents(message.text.lower()).replace(" ", "-")
 
     if not verify_city(city_normalized):
         await message.answer(f"I couldn't set the city to {city} because it wasn't found on OLX, try again or /cancel")
