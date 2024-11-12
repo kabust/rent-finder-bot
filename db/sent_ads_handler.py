@@ -24,5 +24,5 @@ def delete_old_records() -> None:
     timestamp_threshold = (
         datetime.now(tz=timezone.utc) - relativedelta(month=1)
     ).strftime("%Y-%m-%d %H:%M:%S")
-    cur.execute("DELETE * FROM sent_ads WHERE timestamp < (?)", timestamp_threshold)
+    cur.execute("DELETE FROM sent_ads WHERE timestamp < (?)", timestamp_threshold)
     con.commit()
