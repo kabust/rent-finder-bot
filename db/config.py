@@ -1,7 +1,7 @@
 import sqlite3
 
 
-con = sqlite3.connect("db/db.sqlite")
+con = sqlite3.connect("db.sqlite")
 con.row_factory = sqlite3.Row
 cur = con.cursor()
 
@@ -23,6 +23,7 @@ cur.execute(
     """
     CREATE TABLE IF NOT EXISTS sent_ads(
         id INTEGER PRIMARY KEY NOT NULL,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
         user_id INTEGER NOT NULL,
         olx_link STRING NOT NULL
     )

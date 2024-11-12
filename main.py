@@ -21,7 +21,7 @@ from db.user_handler import (
     update_user_city,
     get_all_users_with_city,
 )
-from db.sent_ads_handler import write_ad, filter_ads
+from db.sent_ads_handler import write_ad, filter_ads, delete_old_records
 from scraper import get_last_50_items, verify_city
 from utils import are_cities_similar, remove_accents
 
@@ -41,9 +41,16 @@ class Form(StatesGroup):
 
 async def send_scheduled_message():
     while True:
+        logging.log(20, f"Deleting outdated saved ads")
+        delete_old_records()
+
         users = get_all_users_with_city()
         unique_cities = get_unique_cities()
 
+        logging.log(
+            20,
+            f"Getting ads for {len(unique_cities)} cities and sending to {len(users)} users",
+        )
         items = {}
         for city in unique_cities:
             items[city] = get_last_50_items(city)
@@ -56,7 +63,7 @@ async def send_scheduled_message():
 
 
 async def send_items(user: tuple, items: list[dict]) -> None:
-    logging.log(20, f"Sending {len(items)} items for user {user["user_id"]}")
+    logging.log(20, f"Sending {len(items)} items for user {user['user_id']}")
     for item in items:
         title = item["title"]
         price = item["price"]
@@ -72,8 +79,8 @@ async def send_items(user: tuple, items: list[dict]) -> None:
         else:
             write_ad(user["user_id"], item_link)
 
-        text = f'<strong><a href="{item_link}">{title}</a></strong>\n \
-        \n{price} | {size}\n{location} - Published at {publication_time}\n'
+        text = f"<strong><a href='{item_link}'>{title}</a></strong>\n \
+        \n{price} | {size}\n{location} - Published at {publication_time}\n"
         await bot.send_message(user["chat_id"], text)
 
 
@@ -121,7 +128,7 @@ async def command_update_city_handler(message: Message, state: FSMContext) -> No
     This handler receives messages with `/update_city` command
     """
     await message.answer(
-        f"Please, provide your city in polish:\n" f"{html.italic('/cancel')}"
+        f"Please, provide your city in polish:\n {html.italic('/cancel')}"
     )
     await state.set_state(Form.waiting_for_first_message)
 
