@@ -11,15 +11,14 @@ load_dotenv()
 url_template = os.getenv("OLX_URL")
 
 
-def get_last_50_items(city: str) -> dict:
+def get_last_50_items(city: str) -> list[dict]:
     url = url_template.replace("{{city}}", city)
     response = requests.get(url)
     response = BeautifulSoup(response.content, "html.parser")
-    items = response.find_all("div", {"class": "css-1sw7q4x"})
+    items = response.find_all("div", {"data-testid": "l-card"})
 
     results = []
-
-    for item in items[0:50:-1]:
+    for item in items[0:50]:
         if item.select_one("[class=css-1dyfc0k]"):
             continue
 
@@ -48,7 +47,7 @@ def get_last_50_items(city: str) -> dict:
             }
         )
 
-    return results
+    return list(reversed(results))
 
 
 def verify_city(city: str) -> bool:

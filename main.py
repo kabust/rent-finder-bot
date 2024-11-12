@@ -21,10 +21,7 @@ from db.user_handler import (
     update_user_city,
     get_all_users_with_city,
 )
-from db.sent_ads_handler import (
-    write_ad,
-    filter_ads
-)
+from db.sent_ads_handler import write_ad, filter_ads
 from scraper import get_last_50_items, verify_city
 from utils import are_cities_similar, remove_accents
 
@@ -52,14 +49,15 @@ async def send_scheduled_message():
             items[city] = get_last_50_items(city)
 
         for user in users:
-            await send_items(user, items)
+            await send_items(user, items[user["city"]])
 
+        logging.log(20, f"Processed all users")
         await asyncio.sleep(300)
 
 
-async def send_items(user: tuple, items: list) -> None:
-    logging.log(20, f"Sending {len(items[user["city"]])} items for user {user["user_id"]}")
-    for item in items[user["city"]]:
+async def send_items(user: tuple, items: list[dict]) -> None:
+    logging.log(20, f"Sending {len(items)} items for user {user["user_id"]}")
+    for item in items:
         title = item["title"]
         price = item["price"]
         location = item["location"]
@@ -105,7 +103,7 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
         await state.set_state(Form.waiting_for_first_message)
 
     else:
-        city = user.get("city", "None")
+        city = user["city"] if user["city"] else "None"
         await message.answer(
             f"Hi again, {html.bold(message.from_user.first_name)}!\
             \nYour city is already set to {city.capitalize()}\
@@ -123,8 +121,7 @@ async def command_update_city_handler(message: Message, state: FSMContext) -> No
     This handler receives messages with `/update_city` command
     """
     await message.answer(
-        f"Please, provide your city in polish:\n"
-        f"{html.italic('/cancel')}"
+        f"Please, provide your city in polish:\n" f"{html.italic('/cancel')}"
     )
     await state.set_state(Form.waiting_for_first_message)
 
@@ -143,10 +140,14 @@ async def set_city(message: Message, state: FSMContext) -> None:
     city_normalized = remove_accents(message.text.lower()).replace(" ", "-")
 
     if not verify_city(city_normalized):
-        await message.answer(f"I couldn't set the city to {city} because it wasn't found on OLX, try again or /cancel")
+        await message.answer(
+            f"I couldn't set the city to {city} because it wasn't found on OLX, try again or /cancel"
+        )
     else:
         update_user_city(message.from_user.id, city_normalized)
-        await message.answer(f"Thank you! Your city was set to {html.bold(city)}, now sit back and wait for new links ;)")
+        await message.answer(
+            f"Thank you! Your city was set to {html.bold(city)}, now sit back and wait for new links ;)"
+        )
         await state.clear()
 
 
