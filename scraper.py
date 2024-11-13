@@ -25,9 +25,8 @@ def get_last_50_items(city: str) -> list[dict]:
         title = item.find("h6", {"class": "css-1wxaaza"}).text
         price = item.find("p", {"class": "css-13afqrm"}).text.split("do negocjacji")[0]
 
-        location_date = item.find("p", {"class": "css-1mwdrlh"}).text.split(" - ")
-        location = location_date[0]
-        publication_time = convert_utc_to_local(location_date[-1].split(" o ")[-1])
+        location, publication_time = item.find("p", {"data-testid": "location-date"}).text.split(" - ")
+        publication_time = convert_utc_to_local(publication_time.split(" o ")[-1])
 
         size = item.find("span", {"class": "css-1cd0guq"}).text
 
