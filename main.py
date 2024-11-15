@@ -61,16 +61,22 @@ async def send_scheduled_message():
         for city in unique_cities:
             items[city] = get_last_50_items(city)
 
-        for user in users:
-            await send_items(user, items[user["city"]])
+        tasks = [send_items(user, items) for user in users]
+        for task in asyncio.as_completed(tasks):
+            try:
+                await task
+            except Exception as e:
+                logging.log(30, e)
+        # await asyncio.gather(*tasks, return_exceptions=True)
 
-        logging.log(20, f"Processed all users")
+        logging.log(20, "All users were processed")
         await asyncio.sleep(300)
 
 
-async def send_items(user: tuple, items: list[dict]) -> None:
-    logging.log(20, f"Sending {len(items)} items for user {user['user_id']}")
-    for item in items:
+async def send_items(user: tuple, items: dict) -> None:
+    ads_count = 0
+    city = user["city"]
+    for item in items[city]:
         title = item["title"]
         price = item["price"]
         location = item["location"]
@@ -84,10 +90,12 @@ async def send_items(user: tuple, items: list[dict]) -> None:
             continue
         else:
             write_ad(user["user_id"], item_link)
+            ads_count += 1
 
         text = f"<strong><a href='{item_link}'>{title}</a></strong>\n \
         \n{price} | {size}\n{location} - Published at {publication_time}\n"
         await bot.send_message(user["chat_id"], text)
+    logging.log(20, f"Sent {ads_count} items for user {user['user_id']}")
 
 
 @dp.message(CommandStart())
