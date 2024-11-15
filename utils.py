@@ -23,6 +23,8 @@ def convert_utc_to_local(utc_time_str, local_timezone="Europe/Warsaw"):
 
 def remove_accents(text):
     # Normalize the text to separate accents from letters
-    normalized_text = unicodedata.normalize('NFD', text)
+    normalized_text = unicodedata.normalize("NFD", text)
     # Filter out the accent characters
-    return ''.join(char for char in normalized_text if unicodedata.category(char) != 'Mn')
+    return "".join(
+        char for char in normalized_text if unicodedata.category(char) != "Mn"
+    )
