@@ -65,7 +65,7 @@ async def send_scheduled_message():
 
 
 async def send_items(user: tuple, items: list[dict]) -> None:
-    logging.log(20, f"Sending {len(items)} items for user {user['user_id']}")
+    ads_count = 0
     for item in items:
         title = item["title"]
         price = item["price"]
@@ -80,10 +80,12 @@ async def send_items(user: tuple, items: list[dict]) -> None:
             continue
         else:
             write_ad(user["user_id"], item_link)
+            ads_count += 1
 
         text = f"<strong><a href='{item_link}'>{title}</a></strong>\n \
         \n{price} | {size}\n{location} - Published at {publication_time}\n"
         await bot.send_message(user["chat_id"], text)
+    logging.log(20, f"Sent {ads_count} items for user {user['user_id']}")
 
 
 @dp.message(CommandStart())
