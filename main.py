@@ -55,11 +55,14 @@ async def send_scheduled_message():
         for city in unique_cities:
             items[city] = get_last_50_items(city)
 
-        tasks = []
-        for user in users:
-            tasks.append(send_items(user, items))
+        tasks = [send_items(user, items) for user in users]
+        for task in asyncio.as_completed(tasks):
+            try:
+                await task
+            except Exception as e:
+                logging.log(30, e)
+        # await asyncio.gather(*tasks, return_exceptions=True)
 
-        await asyncio.gather(*tasks, return_exceptions=True)
         logging.log(20, "All users were processed")
         await asyncio.sleep(300)
 
