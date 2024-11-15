@@ -67,9 +67,10 @@ async def send_scheduled_message():
         await asyncio.sleep(300)
 
 
-async def send_items(user: tuple, items: list[dict]) -> None:
+async def send_items(user: tuple, items: dict) -> None:
     ads_count = 0
-    for item in items:
+    city = user["city"]
+    for item in items[city]:
         title = item["title"]
         price = item["price"]
         location = item["location"]
