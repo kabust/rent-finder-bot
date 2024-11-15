@@ -29,7 +29,7 @@ def get_last_50_items(city: str) -> list[dict]:
         try:
             publication_time = convert_utc_to_local(publication_time.split(" o ")[-1])
         except ValueError:
-            publication_time = convert_utc_to_local("N/A")
+            publication_time = "N/A"
 
         size = item.find("span", {"class": "css-1cd0guq"}).text
 
