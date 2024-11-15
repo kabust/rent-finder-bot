@@ -32,6 +32,12 @@ load_dotenv()
 TOKEN = os.getenv("API_TOKEN")
 dp = Dispatcher()
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+logging.basicConfig(
+    filename="app.log",
+    level=logging.INFO,
+    format="%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S:%MS"
+)
 
 
 class Form(StatesGroup):
