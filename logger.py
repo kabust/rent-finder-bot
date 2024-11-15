@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("logger")
+logger = logging.Logger("app")
 logger.setLevel(logging.DEBUG)
 
 console_handler = logging.StreamHandler()
