@@ -28,7 +28,7 @@ def get_last_50_items(city: str) -> list[dict]:
                 continue
 
             try:
-                title = item.find("a", {"data-cy": "ad-card-title"}).text
+                title = item.find("h4", {"data-cy": "ad-card-title"}).text
             except ValueError:
                 title = "N/A"
 
