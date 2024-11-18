@@ -28,11 +28,11 @@ def get_last_50_items(city: str) -> list[dict]:
                 continue
 
             try:
-                title = item.find("h4", {"data-cy": "ad-card-title"}).text
+                title = item.find("h4", {"class": "css-1s3qyje"}).text
             except ValueError:
                 title = "N/A"
 
-            price = item.find("p", {"class": "css-13afqrm"}).text.split("do negocjacji")[0]
+            price = item.find("p", {"data-testid": "ad-price"}).text.split("do negocjacji")[0]
 
             location, publication_time = item.find("p", {"data-testid": "location-date"}).text.split(" - ")
             try:
