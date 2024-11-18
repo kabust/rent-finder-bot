@@ -1,4 +1,6 @@
 import os
+import re
+
 import requests
 
 from bs4 import BeautifulSoup
@@ -25,12 +27,16 @@ def get_last_50_items(city: str) -> list[dict]:
             if item.select_one("[class=css-1dyfc0k]"):
                 continue
 
-            title = item.find("a", {"data-cy": "ad-card-title"}).text
+            try:
+                title = item.find("a", {"data-cy": "ad-card-title"}).text
+            except ValueError:
+                title = "N/A"
+
             price = item.find("p", {"class": "css-13afqrm"}).text.split("do negocjacji")[0]
 
             location, publication_time = item.find("p", {"data-testid": "location-date"}).text.split(" - ")
             try:
-                publication_time = convert_utc_to_local(publication_time.split(" o ")[-1])
+                publication_time = convert_utc_to_local(re.split(' o |, ', publication_time)[-1])
             except ValueError:
                 publication_time = "N/A"
 
@@ -52,7 +58,7 @@ def get_last_50_items(city: str) -> list[dict]:
                 }
             )
         except Exception as e:
-            logger.log(f"Error during scraping: {e}")
+            logger.log(40, f"Error during scraping: {e}")
 
     return list(reversed(results))
 

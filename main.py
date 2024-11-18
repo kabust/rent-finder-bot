@@ -126,7 +126,7 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
         )
 
     if not hasattr(dp, "scheduled_task"):
-        logger.log("Setting scheduled task")
+        logger.log(20, "Setting scheduled task")
         dp.scheduled_task = asyncio.create_task(send_scheduled_message())
 
 
