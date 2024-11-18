@@ -22,7 +22,7 @@ def get_last_50_items(city: str) -> list[dict]:
         if item.select_one("[class=css-1dyfc0k]"):
             continue
 
-        title = item.find("h6", {"class": "css-1wxaaza"}).text
+        title = item.find("a", {"data-cy": "ad-card-title"}).text
         price = item.find("p", {"class": "css-13afqrm"}).text.split("do negocjacji")[0]
 
         location, publication_time = item.find("p", {"data-testid": "location-date"}).text.split(" - ")
