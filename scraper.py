@@ -5,6 +5,8 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
 from utils import convert_utc_to_local
+from logger import logger
+
 
 load_dotenv()
 
@@ -19,35 +21,38 @@ def get_last_50_items(city: str) -> list[dict]:
 
     results = []
     for item in items[0:50]:
-        if item.select_one("[class=css-1dyfc0k]"):
-            continue
-
-        title = item.find("a", {"data-cy": "ad-card-title"}).text
-        price = item.find("p", {"class": "css-13afqrm"}).text.split("do negocjacji")[0]
-
-        location, publication_time = item.find("p", {"data-testid": "location-date"}).text.split(" - ")
         try:
-            publication_time = convert_utc_to_local(publication_time.split(" o ")[-1])
-        except ValueError:
-            publication_time = "N/A"
+            if item.select_one("[class=css-1dyfc0k]"):
+                continue
 
-        size = item.find("span", {"class": "css-1cd0guq"}).text
+            title = item.find("a", {"data-cy": "ad-card-title"}).text
+            price = item.find("p", {"class": "css-13afqrm"}).text.split("do negocjacji")[0]
 
-        item_link = item.find("a")["href"]
-        item_link = (
-            f"https://olx.pl{item_link}" if not "https:" in item_link else item_link
-        )
+            location, publication_time = item.find("p", {"data-testid": "location-date"}).text.split(" - ")
+            try:
+                publication_time = convert_utc_to_local(publication_time.split(" o ")[-1])
+            except ValueError:
+                publication_time = "N/A"
 
-        results.append(
-            {
-                "title": title,
-                "price": price,
-                "location": location,
-                "publication_time": publication_time,
-                "size": size,
-                "item_link": item_link,
-            }
-        )
+            size = item.find("span", {"class": "css-1cd0guq"}).text
+
+            item_link = item.find("a")["href"]
+            item_link = (
+                f"https://olx.pl{item_link}" if not "https:" in item_link else item_link
+            )
+
+            results.append(
+                {
+                    "title": title,
+                    "price": price,
+                    "location": location,
+                    "publication_time": publication_time,
+                    "size": size,
+                    "item_link": item_link,
+                }
+            )
+        except Exception as e:
+            logger.log(f"Error during scraping: {e}")
 
     return list(reversed(results))
 
