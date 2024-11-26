@@ -36,8 +36,8 @@ def write_user(
     city: str | None = None,
 ):
     user = cur.execute(
-        "INSERT INTO users VALUES (?, ?, ?, ?, ?, ?)",
-        [user_id, chat_id, full_name, username, is_bot, city],
+        "INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [user_id, chat_id, full_name, username, 1, is_bot, city],
     )
 
     con.commit()
