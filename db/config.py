@@ -31,3 +31,32 @@ cur.execute(
 )
 
 con.commit()
+
+
+if __name__ == "__main__":
+    cur.execute("DROP TABLE users_new")
+    cur.execute(
+        """
+        CREATE TABLE users_new(
+            user_id INTEGER NOT NULL,
+            chat_id INTEGER NOT NULL,
+            full_name VARCHAR(50), 
+            username VARCHAR(50), 
+            is_active BOOLEAN NOT NULL DEFAULT 1,
+            is_bot BOOLEAN, 
+            city VARCHAR(50), 
+            PRIMARY KEY(user_id)
+        )
+        """
+    )
+    cur.execute(
+        """
+        INSERT INTO users_new (user_id, chat_id, full_name, username, is_active, is_bot, city)
+        SELECT user_id, chat_id, full_name, username, 1, is_bot, city
+        FROM users
+        """
+    )
+    cur.execute("DROP TABLE users")
+    cur.execute("ALTER TABLE users_new RENAME TO users")
+
+    con.commit()

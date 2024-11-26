@@ -18,10 +18,12 @@ from db.user_handler import (
     get_user,
     delete_user,
     update_user_city,
-    get_all_users_with_city,
+    get_all_active_users_with_city,
+    activate_user,
+    deactivate_user
 )
 from db.sent_ads_handler import write_ad, filter_ads, delete_old_records
-from scraper import get_last_50_items, verify_city
+from scraper import get_last_5_items, verify_city
 from utils import are_cities_similar, remove_accents
 from logger import logger
 
@@ -44,7 +46,7 @@ async def send_scheduled_message():
         logger.log(20, f"Deleting outdated saved ads")
         delete_old_records()
 
-        users = get_all_users_with_city()
+        users = get_all_active_users_with_city()
         unique_cities = get_unique_cities()
 
         logger.log(
@@ -53,7 +55,7 @@ async def send_scheduled_message():
         )
         items = {}
         for city in unique_cities:
-            items[city] = get_last_50_items(city)
+            items[city] = get_last_5_items(city)
 
         tasks = [send_items(user, items) for user in users]
         for task in asyncio.as_completed(tasks):
@@ -61,13 +63,12 @@ async def send_scheduled_message():
                 await task
             except Exception as e:
                 logger.log(30, e)
-        # await asyncio.gather(*tasks, return_exceptions=True)
 
         logger.log(20, "All users were processed")
-        await asyncio.sleep(300)
+        await asyncio.sleep(60)
 
 
-async def send_items(user: tuple, items: dict) -> None:
+async def send_items(user: dict, items: dict) -> None:
     ads_count = 0
     city = user["city"]
     for item in items[city]:
@@ -77,6 +78,7 @@ async def send_items(user: tuple, items: dict) -> None:
         publication_time = item["publication_time"]
         size = item["size"]
         item_link = item["item_link"]
+        item_img = item["item_img"]
 
         ads_seen_by_user = filter_ads(user["user_id"])
 
@@ -88,7 +90,12 @@ async def send_items(user: tuple, items: dict) -> None:
 
         text = f"<strong><a href='{item_link}'>{title}</a></strong>\n \
         \n{price} | {size}\n{location} - Published at {publication_time}\n"
-        await bot.send_message(user["chat_id"], text)
+
+        await bot.send_photo(
+            chat_id=user["chat_id"],
+            photo=item_img,
+            caption=text
+        )
     logger.log(20, f"Sent {ads_count} items for user {user['user_id']}")
 
 
@@ -112,12 +119,13 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
 
         await message.answer(
             f"Hello, {html.bold(message.from_user.first_name)}!\
-            \nThis bot sends OLX rent ads every 5 minutes, so you'll have the most fresh offers out there!\
+            \nThis bot checks for new OLX rent ads every minute, so you'll have the most fresh offers out there!\
             \n\n{html.italic('Please, provide your city in polish:')}"
         )
         await state.set_state(Form.waiting_for_first_message)
 
     else:
+        activate_user(user_id)
         city = user["city"] if user["city"] else "None"
         await message.answer(
             f"Hi again, {html.bold(message.from_user.first_name)}!\
@@ -147,6 +155,17 @@ async def command_cancel_handler(message: Message, state: FSMContext) -> None:
     This handler clears the state
     """
     await state.clear()
+
+
+@dp.message(Command("pause"))
+async def command_pause_handler(message: Message) -> None:
+    """
+    This handler clears the state
+    """
+    user_id = message.from_user.id
+    deactivate_user(user_id)
+    logger.log(20, f"Received /pause from user {user_id}")
+    await message.answer("Bot is paused, to resume send /start")
 
 
 @dp.message(Form.waiting_for_first_message)

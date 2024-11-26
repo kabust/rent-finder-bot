@@ -11,18 +11,17 @@ from logger import logger
 
 
 load_dotenv()
-
 url_template = os.getenv("OLX_URL")
 
 
-def get_last_50_items(city: str) -> list[dict]:
-    url = url_template.replace("{{city}}", city)
+def get_last_5_items(city: str) -> list[dict]:
+    url = url_template.format(city=city)
     response = requests.get(url)
     response = BeautifulSoup(response.content, "html.parser")
     items = response.find_all("div", {"data-testid": "l-card"})
 
     results = []
-    for item in items[0:50]:
+    for item in items[0:5]:
         try:
             if item.select_one("[class=css-1dyfc0k]"):
                 continue
@@ -47,6 +46,8 @@ def get_last_50_items(city: str) -> list[dict]:
                 f"https://olx.pl{item_link}" if not "https:" in item_link else item_link
             )
 
+            item_img = item.find("img")["srcset"].split(" ")[-2]
+
             results.append(
                 {
                     "title": title,
@@ -55,6 +56,7 @@ def get_last_50_items(city: str) -> list[dict]:
                     "publication_time": publication_time,
                     "size": size,
                     "item_link": item_link,
+                    "item_img": item_img
                 }
             )
         except Exception as e:
@@ -64,6 +66,10 @@ def get_last_50_items(city: str) -> list[dict]:
 
 
 def verify_city(city: str) -> bool:
-    url = url_template.replace("{{city}}", city)
+    url = url_template.format(city=city)
     response = requests.get(url)
     return response.status_code == 200
+
+
+if __name__ == "__main__":
+    print(get_last_5_items("krakow")[0])
