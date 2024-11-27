@@ -30,7 +30,6 @@ from logger import logger
 
 load_dotenv()
 
-
 TOKEN = os.getenv("API_TOKEN")
 dp = Dispatcher()
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
@@ -55,7 +54,10 @@ async def send_scheduled_message():
         )
         items = {}
         for city in unique_cities:
-            items[city] = get_last_5_items(city)
+            try:
+                items[city] = get_last_5_items(city)
+            except Exception as e:
+                logger.log(40, f"Error during scraping: {e}")
 
         tasks = [send_items(user, items) for user in users]
         for task in asyncio.as_completed(tasks):
@@ -65,13 +67,13 @@ async def send_scheduled_message():
                 logger.log(30, e)
 
         logger.log(20, "All users were processed")
-        await asyncio.sleep(60)
+        await asyncio.sleep(120)
 
 
 async def send_items(user: dict, items: dict) -> None:
     ads_count = 0
     city = user["city"]
-    for item in items[city]:
+    for item in items.get(city):
         title = item["title"]
         price = item["price"]
         location = item["location"]

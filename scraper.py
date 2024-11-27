@@ -67,9 +67,10 @@ def get_last_5_items(city: str) -> list[dict]:
 
 def verify_city(city: str) -> bool:
     url = url_template.format(city=city)
+    logger.log(20, url)
     response = requests.get(url)
     return response.status_code == 200
 
 
 if __name__ == "__main__":
-    print(get_last_5_items("krakow")[0])
+    print(get_last_5_items("krakow"))
