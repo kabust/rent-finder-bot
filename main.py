@@ -53,11 +53,13 @@ async def send_scheduled_message():
             f"Getting ads for {len(unique_cities)} cities and sending to {len(users)} users",
         )
         items = {}
-        for city in unique_cities:
+        tasks = [get_last_5_items(city) for city in unique_cities]
+        for task in asyncio.as_completed(tasks):
             try:
-                items[city] = get_last_5_items(city)
+                city, result = await task
+                items[city] = result
             except Exception as e:
-                logger.log(40, f"Error during scraping: {e}")
+                logger.log(40, f"Error during requesting: {e}")
 
         tasks = [send_items(user, items) for user in users]
         for task in asyncio.as_completed(tasks):
@@ -175,7 +177,8 @@ async def set_city(message: Message, state: FSMContext) -> None:
     city = message.text.capitalize()
     city_normalized = remove_accents(message.text.lower()).replace(" ", "-")
 
-    if not verify_city(city_normalized):
+    is_city_valid = await verify_city(city_normalized)
+    if not is_city_valid:
         await message.answer(
             f"I couldn't set the city to {city} because it wasn't found on OLX, try again or /cancel"
         )

@@ -1,3 +1,4 @@
+import asyncio
 import os
 import re
 
@@ -14,9 +15,12 @@ load_dotenv()
 url_template = os.getenv("OLX_URL")
 
 
-def get_last_5_items(city: str) -> list[dict]:
+async def get_last_5_items(city: str) -> tuple[str, list[dict]]:
     url = url_template.format(city=city)
-    response = requests.get(url)
+
+    loop = asyncio.get_event_loop()
+    response = await loop.run_in_executor(None, requests.get, url)
+
     response = BeautifulSoup(response.content, "html.parser")
     items = response.find_all("div", {"data-testid": "l-card"})
 
@@ -62,15 +66,18 @@ def get_last_5_items(city: str) -> list[dict]:
         except Exception as e:
             logger.log(40, f"Error during scraping: {e}")
 
-    return list(reversed(results))
+    return city, list(reversed(results))
 
 
-def verify_city(city: str) -> bool:
+async def verify_city(city: str) -> bool:
     url = url_template.format(city=city)
-    logger.log(20, url)
-    response = requests.get(url)
+
+    loop = asyncio.get_event_loop()
+    response = await loop.run_in_executor(None, requests.get, url)
+
     return response.status_code == 200
 
 
 if __name__ == "__main__":
-    print(get_last_5_items("krakow"))
+    res = asyncio.run(get_last_5_items("krakow"))
+    print(res)
