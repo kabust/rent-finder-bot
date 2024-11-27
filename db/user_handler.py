@@ -65,6 +65,8 @@ def update_user_city(user_id: int, new_city: str):
 
 
 def get_unique_cities():
-    query = cur.execute("SELECT DISTINCT city FROM users WHERE city IS NOT NULL")
+    query = cur.execute(
+        "SELECT DISTINCT city FROM users WHERE city IS NOT NULL AND is_active = 1"
+    )
     cities = set(raw["city"] for raw in query.fetchall())
     return cities
