@@ -23,7 +23,7 @@ from db.user_handler import (
     deactivate_user
 )
 from db.sent_ads_handler import write_ad, filter_ads, delete_old_records
-from scraper import get_last_5_items, verify_city
+from scraper import get_last_n_items, verify_city
 from utils import are_cities_similar, remove_accents
 from logger import logger
 
@@ -53,7 +53,7 @@ async def send_scheduled_message():
             f"Getting ads for {len(unique_cities)} cities and sending to {len(users)} users",
         )
         items = {}
-        tasks = [get_last_5_items(city) for city in unique_cities]
+        tasks = [get_last_n_items(city) for city in unique_cities]
         for task in asyncio.as_completed(tasks):
             try:
                 city, result = await task
@@ -80,7 +80,7 @@ async def send_items(user: dict, items: dict) -> None:
         price = item["price"]
         location = item["location"]
         publication_time = item["publication_time"]
-        size = item["size"]
+        features = item["features"]
         item_link = item["item_link"]
         item_img = item["item_img"]
 
@@ -93,7 +93,8 @@ async def send_items(user: dict, items: dict) -> None:
             ads_count += 1
 
         text = f"<strong><a href='{item_link}'>{title}</a></strong>\n \
-        \n{price} | {size}\n{location} - Published at {publication_time}\n"
+        \n{price} | {location}\nPublished at {publication_time}\n \
+        Features: <ul>{"".join(f"<li>{feature}</li>" for feature in features)}</ul>"
 
         await bot.send_photo(
             chat_id=user["chat_id"],
