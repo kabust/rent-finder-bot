@@ -77,7 +77,7 @@ def parse_olx(response: requests.Response) -> dict:
 
         features = [
             item.text
-            for item in item.find_all("p", {"class": "css-b5m1rv"})[:-1]
+            for item in item.find_all("p", {"class": "css-b5m1rv"})[:-1:-1]
         ]
 
         try:
