@@ -42,16 +42,13 @@ class Form(StatesGroup):
 
 async def send_scheduled_message():
     while True:
-        logger.log(20, f"Deleting outdated saved ads")
+        logger.info(f"Deleting outdated saved ads")
         delete_old_records()
 
         users = get_all_active_users_with_city()
         unique_cities = get_unique_cities()
 
-        logger.log(
-            20,
-            f"Getting ads for {len(unique_cities)} cities and sending to {len(users)} users",
-        )
+        logger.info(f"Getting ads for {len(unique_cities)} cities and sending to {len(users)} users")
         items = {}
         tasks = [get_last_n_items(city) for city in unique_cities]
         for task in asyncio.as_completed(tasks):
@@ -59,17 +56,17 @@ async def send_scheduled_message():
                 city, result = await task
                 items[city] = result
             except Exception as e:
-                logger.log(40, f"Error during requesting: {e}")
+                logger.exception(f"Error during requesting: {e}")
 
         tasks = [send_items(user, items) for user in users]
         for task in asyncio.as_completed(tasks):
             try:
                 await task
             except Exception as e:
-                logger.log(30, e)
+                logger.warning(e)
 
-        logger.log(20, "All users were processed")
-        await asyncio.sleep(120)
+        logger.info("All users were processed")
+        await asyncio.sleep(180)
 
 
 async def send_items(user: dict, items: dict) -> None:
@@ -78,9 +75,9 @@ async def send_items(user: dict, items: dict) -> None:
     for item in items.get(city):
         title = item["title"]
         price = item["price"]
-        location = item["location"]
+        location = item["location"][:40] + "..." if len(item["location"]) > 40 else item["location"]
         publication_time = item["publication_time"]
-        features = item["features"]
+        features = "".join(f"▫️ {feature}\n" for feature in item["features"])
         item_link = item["item_link"]
         item_img = item["item_img"]
 
@@ -89,19 +86,18 @@ async def send_items(user: dict, items: dict) -> None:
         if item_link in ads_seen_by_user:
             continue
         else:
+            text = f"<strong><a href='{item_link}'>{title}</a></strong>\n \
+            \n{price} | {location}\nPublished: {publication_time}\n \
+            \nFeatures: \n{features}"
+
+            await bot.send_photo(
+                chat_id=user["chat_id"],
+                photo=item_img,
+                caption=text
+            )
             write_ad(user["user_id"], item_link)
             ads_count += 1
-
-        text = f"<strong><a href='{item_link}'>{title}</a></strong>\n \
-        \n{price} | {location}\nPublished at {publication_time}\n \
-        Features: <ul>{"".join(f"<li>{feature}</li>" for feature in features)}</ul>"
-
-        await bot.send_photo(
-            chat_id=user["chat_id"],
-            photo=item_img,
-            caption=text
-        )
-    logger.log(20, f"Sent {ads_count} items for user {user['user_id']}")
+    logger.info(f"Sent {ads_count} items for user {user['user_id']}")
 
 
 @dp.message(CommandStart())
@@ -110,7 +106,7 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
     This handler receives messages with `/start` command
     """
     user_id = message.from_user.id
-    logger.log(20, f"Received /start from user {user_id}")
+    logger.info(f"Received /start from user {user_id}")
 
     user = get_user(user_id)
     if not user:
@@ -139,7 +135,7 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
         )
 
     if not hasattr(dp, "scheduled_task"):
-        logger.log(20, "Setting scheduled task")
+        logger.info("Setting scheduled task")
         dp.scheduled_task = asyncio.create_task(send_scheduled_message())
 
 
@@ -169,7 +165,7 @@ async def command_pause_handler(message: Message) -> None:
     """
     user_id = message.from_user.id
     deactivate_user(user_id)
-    logger.log(20, f"Received /pause from user {user_id}")
+    logger.info(f"Received /pause from user {user_id}")
     await message.answer("Bot is paused, to resume send /start")
 
 
