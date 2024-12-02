@@ -20,7 +20,7 @@ from db.user_handler import (
     update_user_city,
     get_all_active_users_with_city,
     activate_user,
-    deactivate_user
+    deactivate_user,
 )
 from db.sent_ads_handler import write_ad, filter_ads, delete_old_records
 from scraper import get_last_n_items, verify_city
@@ -48,7 +48,9 @@ async def send_scheduled_message():
         users = get_all_active_users_with_city()
         unique_cities = get_unique_cities()
 
-        logger.info(f"Getting ads for {len(unique_cities)} cities and sending to {len(users)} users")
+        logger.info(
+            f"Getting ads for {len(unique_cities)} cities and sending to {len(users)} users"
+        )
         items = {}
         tasks = [get_last_n_items(city) for city in unique_cities]
         for task in asyncio.as_completed(tasks):
@@ -75,7 +77,11 @@ async def send_items(user: dict, items: dict) -> None:
     for item in items.get(city):
         title = item["title"]
         price = item["price"]
-        location = item["location"][:40] + "..." if len(item["location"]) > 40 else item["location"]
+        location = (
+            item["location"][:40] + "..."
+            if len(item["location"]) > 40
+            else item["location"]
+        )
         publication_time = item["publication_time"]
         features = "".join(f"▫️ {feature}\n" for feature in item["features"])
         item_link = item["item_link"]
@@ -87,14 +93,10 @@ async def send_items(user: dict, items: dict) -> None:
             continue
         else:
             text = f"<strong><a href='{item_link}'>{title}</a></strong>\n \
-            \n{price} | {location}\nPublished: {publication_time}\n \
+            \n{price} | {location}\nPublished at/on {publication_time}\n \
             \nFeatures: \n{features}"
 
-            await bot.send_photo(
-                chat_id=user["chat_id"],
-                photo=item_img,
-                caption=text
-            )
+            await bot.send_photo(chat_id=user["chat_id"], photo=item_img, caption=text)
             write_ad(user["user_id"], item_link)
             ads_count += 1
     logger.info(f"Sent {ads_count} items for user {user['user_id']}")
@@ -182,7 +184,7 @@ async def set_city(message: Message, state: FSMContext) -> None:
     else:
         update_user_city(message.from_user.id, city_normalized)
         await message.answer(
-            f"Thank you! Your city was set to {html.bold(city)}, now sit back and wait for new links ;)"
+            f"Thank you! Your city was set to {html.bold(city)}, now sit back and wait for new links :rocket:"
         )
         await state.clear()
 
