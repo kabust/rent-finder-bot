@@ -21,7 +21,7 @@ def get_all_active_users_with_city():
         """
         SELECT user_id, chat_id, city 
         FROM users 
-        WHERE city IS NOT NULL AND is_active = 1
+        WHERE city IS NOT NULL AND is_active = 1 AND is_bot = 0
         """
     )
     return users.fetchall()
