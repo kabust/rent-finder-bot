@@ -1,6 +1,6 @@
 import asyncio
 import os
-import sys
+from urllib.parse import uses_relative
 
 from aiogram import Bot, Dispatcher, html
 from aiogram.fsm.context import FSMContext
@@ -9,7 +9,8 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart, Command
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from dotenv import load_dotenv
 
 from db.user_handler import (
@@ -20,7 +21,7 @@ from db.user_handler import (
     update_user_city,
     get_all_active_users_with_city,
     activate_user,
-    deactivate_user
+    deactivate_user, get_all_users
 )
 from db.sent_ads_handler import write_ad, filter_ads, delete_old_records
 from scraper import get_last_n_items, verify_city
@@ -36,8 +37,8 @@ bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
 
 class Form(StatesGroup):
-    waiting_for_first_message = State()
-    waiting_for_second_message = State()
+    waiting_for_city = State()
+    waiting_for_admin_message = State()
 
 
 async def send_scheduled_message():
@@ -101,12 +102,28 @@ async def send_items(user: dict, items: dict) -> None:
 
 
 @dp.message(CommandStart())
-async def command_start_handler(message: Message, state: FSMContext) -> None:
+async def command_start_handler(
+        message: Message, state: FSMContext, user_id: int = None
+) -> None:
     """
     This handler receives messages with `/start` command
     """
-    user_id = message.from_user.id
+    inline_kb = InlineKeyboardBuilder()
+    inline_kb.button(text="Update city", callback_data="update_city")
+
+    reply_kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="Update City"), KeyboardButton(text="Pause")],
+            [KeyboardButton(text="Filters")],
+        ],
+        resize_keyboard=True
+    )
+
+    if not user_id:
+        user_id = message.from_user.id
     logger.info(f"Received /start from user {user_id}")
+
+    await message.answer("Menu keyboard added, check it out!", reply_markup=reply_kb)
 
     user = get_user(user_id)
     if not user:
@@ -121,17 +138,17 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
         await message.answer(
             f"Hello, {html.bold(message.from_user.first_name)}!\
             \nThis bot checks for new OLX rent ads every minute, so you'll have the most fresh offers out there!\
-            \n\n{html.italic('Please, provide your city in polish:')}"
+            \n\n{html.italic('Please, provide your city in polish:')}",
         )
-        await state.set_state(Form.waiting_for_first_message)
+        await state.set_state(Form.waiting_for_city)
 
     else:
         activate_user(user_id)
         city = user["city"] if user["city"] else "None"
         await message.answer(
             f"Hi again, {html.bold(message.from_user.first_name)}!\
-            \nYour city is already set to {city.capitalize()}\
-            \n{html.italic('/update_city')}"
+            \nYour city is already set to {city.capitalize()}",
+            reply_markup=inline_kb.as_markup()
         )
 
     if not hasattr(dp, "scheduled_task"):
@@ -140,22 +157,23 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
 
 
 @dp.message(Command("update_city"))
-async def command_update_city_handler(message: Message, state: FSMContext) -> None:
+async def command_update_city_handler(
+        message: Message, state: FSMContext, user_id: int = None
+) -> None:
     """
     This handler receives messages with `/update_city` command
     """
+    inline_kb = InlineKeyboardBuilder()
+    inline_kb.button(text="Cancel", callback_data="cancel")
+
+    logger.info(f"Received /update_city from user {user_id}")
+
     await message.answer(
-        f"Please, provide your city in polish:\n {html.italic('/cancel')}"
+        f"Please, provide your city in polish",
+        reply_markup=inline_kb.as_markup(),
     )
-    await state.set_state(Form.waiting_for_first_message)
 
-
-@dp.message(Command("cancel"))
-async def command_cancel_handler(message: Message, state: FSMContext) -> None:
-    """
-    This handler clears the state
-    """
-    await state.clear()
+    await state.set_state(Form.waiting_for_city)
 
 
 @dp.message(Command("pause"))
@@ -163,21 +181,44 @@ async def command_pause_handler(message: Message) -> None:
     """
     This handler clears the state
     """
+    inline_kb = InlineKeyboardBuilder()
+    inline_kb.button(text="Start to resume", callback_data="start")
+
     user_id = message.from_user.id
     deactivate_user(user_id)
     logger.info(f"Received /pause from user {user_id}")
-    await message.answer("Bot is paused, to resume send /start")
+    await message.answer("Bot is paused", reply_markup=inline_kb.as_markup())
 
 
-@dp.message(Form.waiting_for_first_message)
+@dp.message(Command("admin_message"))
+async def send_message_by_admin(message: Message, state: FSMContext) -> None:
+    user_id = message.from_user.id
+    if user_id == 405433809:
+        await message.answer("Write message for all users")
+        await state.set_state(Form.waiting_for_admin_message)
+
+
+@dp.message(Form.waiting_for_admin_message)
+async def send_message_to_users(message: Message, state: FSMContext):
+    users = get_all_users()
+    tasks = [bot.send_message(user["chat_id"], message.text) for user in users]
+    await asyncio.gather(*tasks)
+    await message.answer("Message sent successfully")
+
+
+@dp.message(Form.waiting_for_city)
 async def set_city(message: Message, state: FSMContext) -> None:
+    inline_kb = InlineKeyboardBuilder()
+    inline_kb.button(text="Cancel", callback_data="cancel")
+
     city = message.text.capitalize()
     city_normalized = remove_accents(message.text.lower()).replace(" ", "-")
 
     is_city_valid = await verify_city(city_normalized)
     if not is_city_valid:
         await message.answer(
-            f"I couldn't set the city to {city} because it wasn't found on OLX, try again or /cancel"
+            f"I couldn't set the city to {city} because it wasn't found on OLX, try again",
+            reply_markup=inline_kb.as_markup()
         )
     else:
         update_user_city(message.from_user.id, city_normalized)
@@ -185,6 +226,35 @@ async def set_city(message: Message, state: FSMContext) -> None:
             f"Thank you! Your city was set to {html.bold(city)}, now sit back and wait for new links ;)"
         )
         await state.clear()
+
+
+@dp.callback_query()
+async def handle_callback_query(callback: CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    if callback.data == "update_city":
+        await command_update_city_handler(callback.message, state, user_id)
+        await callback.message.delete()
+    elif callback.data == "cancel":
+        await state.clear()
+        await callback.message.delete()
+        await callback.answer("Action cancelled")
+    elif callback.data == "start":
+        await command_start_handler(callback.message, state, user_id)
+        await callback.message.delete()
+
+    await callback.answer()
+
+
+@dp.message()
+async def handle_reply(message: Message, state: FSMContext):
+    if message.text == "Update City":
+        await command_update_city_handler(message, state)
+    elif message.text == "Pause":
+        await command_pause_handler(message)
+    elif message.text == "Filters":
+        await message.answer("<i>Will be available soon</i>")
+    else:
+        await message.answer("Please choose a valid option from the keyboard menu")
 
 
 @dp.message()
