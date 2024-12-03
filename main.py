@@ -145,7 +145,7 @@ async def command_start_handler(
         activate_user(user_id)
         city = user["city"] if user["city"] else "None"
         await message.answer(
-            f"Hi again, {html.bold(user["full_name"])}!\
+            f"Hi again, {html.bold(user['full_name'])}!\
             \nYour city is already set to {city.capitalize()}",
             reply_markup=inline_kb.as_markup()
         )
