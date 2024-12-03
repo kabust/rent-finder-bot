@@ -1,6 +1,5 @@
 import asyncio
 import os
-from urllib.parse import uses_relative
 
 from aiogram import Bot, Dispatcher, html
 from aiogram.fsm.context import FSMContext
@@ -204,6 +203,7 @@ async def send_message_to_users(message: Message, state: FSMContext):
     tasks = [bot.send_message(user["chat_id"], message.text) for user in users]
     await asyncio.gather(*tasks)
     await message.answer("Message sent successfully")
+    await state.clear()
 
 
 @dp.message(Form.waiting_for_city)
