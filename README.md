@@ -1,4 +1,4 @@
-![logo](demo/logo.png)
+<img src="demo/logo.png" width=100%>
 
 # Rent Finder Bot
 Telegram Bot for scraping real estate in Poland to rent in real-time. 
