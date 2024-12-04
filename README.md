@@ -1,17 +1,27 @@
+![logo](demo/logo.png)
+
 # Rent Finder Bot
 Telegram Bot for scraping real estate in Poland to rent in real-time. 
 Bot sends scheduled messages every 5 minutes, so you can receive the freshest ads out there.
 
+# Link
+https://t.me/rent_fndr_bot
+
 # Features
-* OLX Scraping
+* OLX Detailed Scraping with each ad features
 * Telegram Bot with states and DB interactions
 * Scheduling with asyncio
-* An option to choose city
+* An option to choose and update city
+* Inline buttons and Keyboard menu
+* Simple admin messaging
+* Bot pausing
+* To be add: filtering (by price, surface size, ad type, etc.)
 
 # Technologies
 * Beautiful Soup and Requests for scraping
 * aiogram3 to handle Telegram Bot
 * sqlite3 to store and manipulate data
+* Asyncio for concurrent scraping and aiogram polling
 
 # How to run
 (You need to have python3 installed)
