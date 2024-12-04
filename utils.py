@@ -4,6 +4,8 @@ import pytz
 from datetime import datetime, date
 from difflib import SequenceMatcher
 
+from logger import logger
+
 
 def are_cities_similar(user_city: str, ad_city: str, threshold=0.8):
     ad_city = ad_city.split(",")[0]
@@ -12,13 +14,17 @@ def are_cities_similar(user_city: str, ad_city: str, threshold=0.8):
 
 
 def convert_utc_to_local(utc_time_str, local_timezone="Europe/Warsaw"):
-    today = date.today()
-    utc_time = datetime.strptime(utc_time_str, "%H:%M").replace(
-        year=today.year, month=today.month, day=today.day, tzinfo=pytz.utc
-    )
+    try:
+        today = date.today()
+        utc_time = datetime.strptime(utc_time_str, "%H:%M").replace(
+            year=today.year, month=today.month, day=today.day, tzinfo=pytz.utc
+        )
 
-    local_time = utc_time.astimezone(pytz.timezone(local_timezone))
-    return local_time.time().strftime("%H:%M")
+        local_time = utc_time.astimezone(pytz.timezone(local_timezone))
+        return local_time.time().strftime("%H:%M")
+    except ValueError:
+        logger.warning("Failed to convert UTC time to local time")
+        return utc_time_str
 
 
 def remove_accents(text):

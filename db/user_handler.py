@@ -16,9 +16,13 @@ def get_all_users():
     return users.fetchall()
 
 
-def get_all_users_with_city():
+def get_all_active_users_with_city():
     users = cur.execute(
-        "SELECT user_id, chat_id, city FROM users WHERE city IS NOT NULL"
+        """
+        SELECT user_id, chat_id, city 
+        FROM users 
+        WHERE city IS NOT NULL AND is_active = 1 AND is_bot = 0
+        """
     )
     return users.fetchall()
 
@@ -32,8 +36,8 @@ def write_user(
     city: str | None = None,
 ):
     user = cur.execute(
-        "INSERT INTO users VALUES (?, ?, ?, ?, ?, ?)",
-        [user_id, chat_id, full_name, username, is_bot, city],
+        "INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [user_id, chat_id, full_name, username, 1, is_bot, city],
     )
 
     con.commit()
@@ -45,12 +49,24 @@ def delete_user(user_id: int):
     con.commit()
 
 
+def activate_user(user_id: int):
+    cur.execute("UPDATE users SET is_active = 1 WHERE user_id = (?)", [user_id])
+    con.commit()
+
+
+def deactivate_user(user_id: int):
+    cur.execute("UPDATE users SET is_active = 0 WHERE user_id = (?)", [user_id])
+    con.commit()
+
+
 def update_user_city(user_id: int, new_city: str):
     cur.execute("UPDATE users SET city = (?) WHERE user_id = (?)", [new_city, user_id])
     con.commit()
 
 
 def get_unique_cities():
-    query = cur.execute("SELECT DISTINCT city FROM users WHERE city IS NOT NULL")
+    query = cur.execute(
+        "SELECT DISTINCT city FROM users WHERE city IS NOT NULL AND is_active = 1"
+    )
     cities = set(raw["city"] for raw in query.fetchall())
     return cities

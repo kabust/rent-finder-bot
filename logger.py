@@ -11,7 +11,7 @@ file_handler.setLevel(logging.INFO)
 
 formatter = logging.Formatter(
     "%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 console_handler.setFormatter(formatter)
 file_handler.setFormatter(formatter)
