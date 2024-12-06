@@ -127,16 +127,33 @@ def parse_otodom(response: requests.Response) -> dict:
     item = BeautifulSoup(response.content, "html.parser")
     try:
         item_link = response.url
+
         try:
             title = item.find("h1", {"class": "css-wqvm7k ef3kcx01"}).text
         except AttributeError:
             logger.warning(f"Couldn't get title for {item_link}")
             title = "N/A"
-        price = item.find("strong", {"class": "css-1o51x5a e1k1vyr21"}).text
-        location = item.find("a", {"class": "css-1jjm9oe e42rcgs1"}).text
-        publication_time = item.find(
-            "p", {"class": "e2md81j2 css-htq2ld"}
-        ).text.split(" ")[-1]
+        
+        try:
+            price = item.find("strong", {"class": "css-1o51x5a e1k1vyr21"}).text
+        except AttributeError:
+            logger.warning(f"Couldn't get price for {item_link}")
+            price = "N/A"
+
+        try:
+            location = item.find("a", {"class": "css-1jjm9oe e42rcgs1"}).text
+        except AttributeError:
+            logger.warning(f"Couldn't get location for {item_link}")
+            location = "N/A"
+        
+        try:
+            publication_time = item.find(
+                "p", {"class": "e2md81j2 css-htq2ld"}
+            ).text.split(" ")[-1]
+        except AttributeError:
+            logger.warning(f"Couldn't get publication_time for {item_link}")
+            publication_time = "N/A"
+        
         features = [
             " ".join(sub.text for sub in feature.find_all("p"))
             for feature in item.find_all("div", {"class": "css-t7cajz e15n0fyo1"})
