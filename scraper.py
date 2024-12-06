@@ -70,12 +70,25 @@ def parse_olx(response: requests.Response) -> dict:
     item = BeautifulSoup(response.content, "html.parser")
     try:
         item_link = response.url
-        title = item.find("h4", {"class": "css-1kc83jo"}).text
-        price = item.find("h3", {"class": "css-90xrc0"}).text
+        try:
+            title = item.find("h4", {"class": "css-1kc83jo"}).text
+        except AttributeError:
+            logger.warning(f"Couldn't get title for {item_link}")
+            title = "N/A"
+        
+        try:
+            price = item.find("h3", {"class": "css-90xrc0"}).text
+        except AttributeError:
+            logger.warning(f"Couldn't get price for {item_link}")
+            price = "N/A"
 
-        publication_time = convert_utc_to_local(
-            item.find("span", {"data-cy": "ad-posted-at"}).text.split(" o ")[-1]
-        )
+        try:
+            publication_time = convert_utc_to_local(
+                item.find("span", {"data-cy": "ad-posted-at"}).text.split(" o ")[-1]
+            )
+        except AttributeError:
+            logger.warning(f"Couldn't get publication_time for {item_link}")
+            publication_time = "N/A"
 
         location = ", ".join(
             "".join(i.a.text.split(" - ")[-1])
@@ -89,8 +102,9 @@ def parse_olx(response: requests.Response) -> dict:
         )
 
         try:
-            item_img = item.find("img")["srcset"].split(" ")[-2]
+            item_img = item.find("img", {"class": "css-1bmvjcs"})["srcset"].split(" ")[-2]
         except KeyError:
+            logger.warning(f"Couldn't get image for {item_link}")
             item_img = image_placeholder
 
         return {
@@ -113,7 +127,11 @@ def parse_otodom(response: requests.Response) -> dict:
     item = BeautifulSoup(response.content, "html.parser")
     try:
         item_link = response.url
-        title = item.find("h1", {"class": "css-wqvm7k ef3kcx01"}).text
+        try:
+            title = item.find("h1", {"class": "css-wqvm7k ef3kcx01"}).text
+        except AttributeError:
+            logger.warning(f"Couldn't get title for {item_link}")
+            title = "N/A"
         price = item.find("strong", {"data-cy": "adPageHeaderPrice"}).text
         location = item.find("a", {"class": "css-1jjm9oe e42rcgs1"}).text
         publication_time = item.find(
@@ -130,6 +148,7 @@ def parse_otodom(response: requests.Response) -> dict:
         try:
             item_img = item.find("picture").img["src"]
         except KeyError:
+            logger.warning(f"Couldn't get image for {item_link}")
             item_img = image_placeholder
 
         return {
