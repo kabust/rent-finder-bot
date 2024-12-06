@@ -113,7 +113,7 @@ def parse_otodom(response: requests.Response) -> dict:
     item = BeautifulSoup(response.content, "html.parser")
     try:
         item_link = response.url
-        title = item.find("h1", {"data-cy": "adPageAdTitle"}).text
+        title = item.find("h1", {"class": "css-wqvm7k ef3kcx01"}).text
         price = item.find("strong", {"data-cy": "adPageHeaderPrice"}).text
         location = item.find("a", {"class": "css-1jjm9oe e42rcgs1"}).text
         publication_time = item.find(
