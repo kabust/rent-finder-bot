@@ -132,7 +132,7 @@ def parse_otodom(response: requests.Response) -> dict:
         except AttributeError:
             logger.warning(f"Couldn't get title for {item_link}")
             title = "N/A"
-        price = item.find("strong", {"data-cy": "adPageHeaderPrice"}).text
+        price = item.find("strong", {"class": "css-1o51x5a e1k1vyr21"}).text
         location = item.find("a", {"class": "css-1jjm9oe e42rcgs1"}).text
         publication_time = item.find(
             "p", {"class": "e2md81j2 css-htq2ld"}
