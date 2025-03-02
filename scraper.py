@@ -71,13 +71,13 @@ def parse_olx(response: requests.Response) -> dict:
     try:
         item_link = response.url
         try:
-            title = item.find("h4", {"class": "css-1kc83jo"}).text
+            title = item.find("div", {"data-testid": "ad_title"}).text
         except AttributeError:
             logger.warning(f"Couldn't get title for {item_link}")
             title = "N/A"
         
         try:
-            price = item.find("h3", {"class": "css-90xrc0"}).text
+            price = item.find("div", {"data-testid": "ad-price-container"}).text
         except AttributeError:
             logger.warning(f"Couldn't get price for {item_link}")
             price = "N/A"
@@ -97,7 +97,11 @@ def parse_olx(response: requests.Response) -> dict:
 
         features = list(
             reversed(
-                [item.text for item in item.find_all("p", {"class": "css-b5m1rv"})[:-1]]
+                [
+                    elem.text 
+                    for elem in item.find("div", {"data-testid": "qa-advert-slot"})
+                    .findAllNext("p", limit=11)[:-1]
+                ]
             )
         )
 
@@ -129,13 +133,13 @@ def parse_otodom(response: requests.Response) -> dict:
         item_link = response.url
 
         try:
-            title = item.find("h1", {"class": "css-wqvm7k ef3kcx01"}).text
+            title = item.find("h1", {"data-cy": "adPageAdTitle"}).text
         except AttributeError:
             logger.warning(f"Couldn't get title for {item_link}")
             title = "N/A"
         
         try:
-            price = item.find("strong", {"class": "css-1o51x5a e1k1vyr21"}).text
+            price = item.find("strong", {"data-cy": "adPageHeaderPrice"}).text
         except AttributeError:
             logger.warning(f"Couldn't get price for {item_link}")
             price = "N/A"
@@ -156,16 +160,16 @@ def parse_otodom(response: requests.Response) -> dict:
         
         features = [
             " ".join(sub.text for sub in feature.find_all("p"))
-            for feature in item.find_all("div", {"class": "css-t7cajz e15n0fyo1"})
+            for feature in item.find_all("div", {"class": "css-1xw0jqp eows69w1"})
         ]
 
         surface = item.find("div", {"class": "css-1ftqasz"}).text
         features.append("Powierszchnia: " + surface)
 
         try:
-            item_img = item.find("picture").img["src"]
-        except KeyError:
-            logger.warning(f"Couldn't get image for {item_link}")
+            item_img = item.find("div", {"data-cy": "mosaic-gallery-main-view"}).find_next("img")["src"]
+        except Exception as e:
+            logger.warning(f"Couldn't get image for {item_link}: {e}")
             item_img = image_placeholder
 
         return {

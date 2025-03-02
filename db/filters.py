@@ -1,0 +1,6 @@
+def filter_by_price():
+    ...
+
+
+def filter_by_surface():
+    ...
