@@ -22,8 +22,8 @@ def convert_utc_to_local(utc_time_str, local_timezone="Europe/Warsaw"):
 
         local_time = utc_time.astimezone(pytz.timezone(local_timezone))
         return local_time.time().strftime("%H:%M")
-    except ValueError:
-        logger.warning("Failed to convert UTC time to local time")
+    except ValueError as e:
+        logger.warning(f"Failed to convert UTC time to local time: {e}")
         return utc_time_str
 
 

@@ -262,5 +262,6 @@ poetry.toml
 pyrightconfig.json
 *.sqlite
 *.db
+*.ipynb
 
 # End of https://www.toptal.com/developers/gitignore/api/pycharm+all,python

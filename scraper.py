@@ -134,28 +134,28 @@ def parse_otodom(response: requests.Response) -> dict:
 
         try:
             title = item.find("h1", {"data-cy": "adPageAdTitle"}).text
-        except AttributeError:
-            logger.warning(f"Couldn't get title for {item_link}")
+        except AttributeError as e:
+            logger.warning(f"Couldn't get title for {item_link}: {e}")
             title = "N/A"
         
         try:
             price = item.find("strong", {"data-cy": "adPageHeaderPrice"}).text
-        except AttributeError:
-            logger.warning(f"Couldn't get price for {item_link}")
+        except AttributeError as e:
+            logger.warning(f"Couldn't get price for {item_link}: {e}")
             price = "N/A"
 
         try:
             location = item.find("a", {"class": "css-1jjm9oe e42rcgs1"}).text
-        except AttributeError:
-            logger.warning(f"Couldn't get location for {item_link}")
+        except AttributeError as e:
+            logger.warning(f"Couldn't get location for {item_link}: {e}")
             location = "N/A"
         
         try:
             publication_time = item.find(
                 "p", {"class": "e2md81j2 css-htq2ld"}
             ).text.split(" ")[-1]
-        except AttributeError:
-            logger.warning(f"Couldn't get publication_time for {item_link}")
+        except AttributeError as e:
+            logger.warning(f"Couldn't get publication_time for {item_link}: {e}")
             publication_time = "N/A"
         
         features = [
@@ -163,11 +163,16 @@ def parse_otodom(response: requests.Response) -> dict:
             for feature in item.find_all("div", {"class": "css-1xw0jqp eows69w1"})
         ]
 
-        surface = item.find("div", {"class": "css-1ftqasz"}).text
+        try:
+            surface = str(item.find(lambda tag: tag.name == "div" and "m²" in tag.text).string)
+        except Exception as e:
+            logger.warning(f"Couldn't get surface for {item_link}: {e}")
+            surface = "N/A"
+        
         features.append("Powierszchnia: " + surface)
 
         try:
-            item_img = item.find("div", {"data-cy": "mosaic-gallery-main-view"}).find_next("img")["src"]
+            item_img = item.find("picture").find_next("img")["src"]
         except Exception as e:
             logger.warning(f"Couldn't get image for {item_link}: {e}")
             item_img = image_placeholder
