@@ -93,4 +93,4 @@ def get_unique_cities():
         User.is_active == True
     ).distinct().all()
     session.close()
-    return set(city for (city,)
+    return set(city for (city,) in cities if city)
