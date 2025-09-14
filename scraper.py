@@ -1,12 +1,14 @@
 import asyncio
 import os
 import requests
+from typing import Literal
 
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
 from logger import logger
 from utils import convert_utc_to_local
+
 
 load_dotenv()
 url_template = os.getenv("OLX_URL")
@@ -15,16 +17,29 @@ image_placeholder = (
 )
 
 
-async def get_last_n_items(city: str, n: int = 13) -> tuple[str, list[dict]]:
-    url = url_template.format(city=city)
-    loop = asyncio.get_event_loop()
-    response = await loop.run_in_executor(None, requests.get, url)
+async def get_last_n_items(
+        city: str,
+        building_types: list[str] = ["mieszkania", "domy"],
+        ad_types: list[str] = ["wynajem", "sprzedaz"],
+        n: int = 20
+    ) -> tuple[str, list[dict]]:
+    items = []
 
-    response = BeautifulSoup(response.content, "html.parser")
-    items = response.find_all("div", {"data-testid": "l-card"})
+    for ad_type in ad_types:
+        for building_type in building_types:
+            url = url_template.format(
+                city=city, 
+                building_type=building_type, 
+                ad_type=ad_type
+            )
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(None, requests.get, url)
+
+            response = BeautifulSoup(response.content, "html.parser")
+            items.extend(response.find_all("div", {"data-testid": "l-card"}))
 
     links = []
-    for item in items[0:n]:
+    for item in items[:n + 1]:
         try:
             if item.select_one("[class=css-1dyfc0k]"):
                 continue
@@ -70,8 +85,8 @@ def parse_olx(response: requests.Response) -> dict:
     item = BeautifulSoup(response.content, "html.parser")
     try:
         item_link = response.url
-        title = item.find("h4", {"class": "css-1kc83jo"}).text
-        price = item.find("h3", {"class": "css-90xrc0"}).text
+        title = item.find("div", {"data-cy": "offer_title"}).text
+        price = item.find("div", {"data-testid": "ad-price-container"}).text.lower().split(" do negocjacji")[0]
 
         publication_time = convert_utc_to_local(
             item.find("span", {"data-cy": "ad-posted-at"}).text.split(" o ")[-1]
@@ -82,11 +97,16 @@ def parse_olx(response: requests.Response) -> dict:
             for i in item.find_all("li", {"data-testid": "breadcrumb-item"})[-2:]
         )
 
-        features = list(
-            reversed(
-                [item.text for item in item.find_all("p", {"class": "css-b5m1rv"})[:-1]]
-            )
-        )
+        features = list(reversed(
+                [
+                    item.text 
+                    for item in (
+                        item
+                        .find("div", {"data-testid": "ad-parameters-container"})
+                        .find_all("p")[:-1]
+                    )
+                ]
+            ))
 
         try:
             item_img = item.find("img")["srcset"].split(" ")[-2]
@@ -115,17 +135,19 @@ def parse_otodom(response: requests.Response) -> dict:
         item_link = response.url
         title = item.find("h1", {"data-cy": "adPageAdTitle"}).text
         price = item.find("strong", {"data-cy": "adPageHeaderPrice"}).text
-        location = item.find("a", {"class": "css-1jjm9oe e42rcgs1"}).text
+        location = item.find("div", {"data-sentry-component": "MapLink"}).find("a").text
         publication_time = item.find(
-            "p", {"class": "e2md81j2 css-htq2ld"}
-        ).text.split(" ")[-1]
+            "div", {"data-sentry-component": "AdHistoryBase"}
+        ).find("p").text.split(" ")[-1]
         features = [
-            " ".join(sub.text for sub in feature.find_all("p"))
-            for feature in item.find_all("div", {"class": "css-t7cajz e15n0fyo1"})
+            " ".join(sub.text for sub in feature.find_all("div"))
+            for feature in (
+                item
+                .find("div", {"data-sentry-component": "AdDetailsBase"})
+                .find("div")
+                .find_all("div", {"data-sentry-element": "ItemGridContainer"})
+            )
         ]
-
-        surface = item.find("div", {"class": "css-1ftqasz"}).text
-        features.append("Powierszchnia: " + surface)
 
         try:
             item_img = item.find("picture").img["src"]
@@ -149,7 +171,7 @@ def parse_otodom(response: requests.Response) -> dict:
 
 
 async def verify_city(city: str) -> bool:
-    url = url_template.format(city=city)
+    url = url_template.format(city=city, building_type="mieszkania", ad_type="wynajem")
 
     loop = asyncio.get_event_loop()
     response = await loop.run_in_executor(None, requests.get, url)
