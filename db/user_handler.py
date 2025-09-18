@@ -28,7 +28,7 @@ def get_all_active_users_with_city():
         User.city.isnot(None),
         User.is_active == True,
         User.is_bot == False
-    ).with_entities(User.user_id, User.chat_id, User.city).all()
+    ).all()
     session.close()
     return users
 
