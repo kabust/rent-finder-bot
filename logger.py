@@ -3,6 +3,14 @@ import logging
 logger = logging.Logger("app")
 logger.setLevel(logging.DEBUG)
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    handlers=[logging.StreamHandler()]
+)
+
+logging.getLogger("aiogram.dispatcher").setLevel(logging.DEBUG)
+
 console_handler = logging.StreamHandler()
 file_handler = logging.FileHandler("app.log")
 

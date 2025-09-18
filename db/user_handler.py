@@ -86,6 +86,15 @@ def update_user_city(user_id: int, new_city: str):
     session.close()
 
 
+def update_user_filter(user_id: int, filter_type: str, value: str):
+    session = SessionLocal()
+    if filter_type not in User.__table__.columns.keys():
+        raise ValueError(f"Incorrect filter type: {filter_type}")
+    session.query(User).filter(User.user_id == user_id).update({filter_type: value})
+    session.commit()
+    session.close()
+
+
 def get_unique_cities():
     session = SessionLocal()
     cities = session.query(User.city).filter(

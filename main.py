@@ -8,7 +8,15 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart, Command
-from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import (
+    Message, 
+    CallbackQuery, 
+    ReplyKeyboardRemove, 
+    ReplyKeyboardMarkup, 
+    KeyboardButton,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton
+)
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from dotenv import load_dotenv
 
@@ -20,7 +28,9 @@ from db.user_handler import (
     update_user_city,
     get_all_active_users_with_city,
     activate_user,
-    deactivate_user, get_all_users
+    deactivate_user, 
+    get_all_users,
+    update_user_filter
 )
 from db.sent_ads_handler import write_ad, filter_ads, delete_old_records
 from scraper import get_last_n_items, verify_city
@@ -229,6 +239,7 @@ async def set_city(message: Message, state: FSMContext) -> None:
 @dp.callback_query()
 async def handle_callback_query(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
+
     if callback.data == "update_city":
         await command_update_city_handler(callback.message, state, user_id)
         await callback.message.delete()
@@ -239,8 +250,32 @@ async def handle_callback_query(callback: CallbackQuery, state: FSMContext):
     elif callback.data == "start":
         await command_start_handler(callback.message, state, user_id)
         await callback.message.delete()
+    elif callback.data == "ad_type":
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="Wynajem", callback_data="filter__ad_type__wynajem"),
+                InlineKeyboardButton(text="Sprzedaz", callback_data="filter__ad_type__sprzedaz")
+            ]
+        ])
+        await callback.message.delete()
+        await callback.message.answer("Choose the ad type", reply_markup=keyboard)
+    elif callback.data == "building_type":
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="Mieszkanie", callback_data="filter__building_type__mieszkanie"),
+                InlineKeyboardButton(text="Dom", callback_data="filter__ad_type__dom"),
+                InlineKeyboardButton(text="Both", callback_data="filter__ad_type__dom"),
+            ]
+        ])
+        await callback.message.delete()
+        await callback.message.answer("Choose the ad type", reply_markup=keyboard)
 
-    await callback.answer()
+
+    elif callback.data.startswith("filter"):
+        filter_type, value = callback.data.split("__")[1:]
+        update_user_filter(user_id, filter_type, value)
+        await callback.message.delete()
+        await callback.message.answer(f"Your {filter_type} is set to {value}")
 
 
 @dp.message()
@@ -250,7 +285,30 @@ async def handle_reply(message: Message, state: FSMContext):
     elif message.text == "Pause":
         await command_pause_handler(message)
     elif message.text == "Filters":
-        await message.answer("<i>Will be available soon</i>")
+        user = get_user(message.from_user.id)
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="Ad Type", callback_data="ad_type"),
+                InlineKeyboardButton(text="Building Type", callback_data="building_type")
+            ],
+            [
+                InlineKeyboardButton(text="Min Price", callback_data="min_price"),
+                InlineKeyboardButton(text="Max Price", callback_data="max_price"),
+                InlineKeyboardButton(text="Min Surface Area (m2)", callback_data="min_surface_area")
+            ],
+        ])
+        await message.answer(
+            (
+                "<strong>Your current filters:</strong>\n"
+                f"Ad type: {user.ad_type_filter}\n"
+                f"Buidling type: {user.building_type_filter}\n"
+                f"Min price: {user.min_price_filter}\n"
+                f"Max price: {user.max_price_filter}\n"
+                f"Min surface area (m2): {user.min_surface_area_filter}\n"
+                "Choose what filter you want to set"
+            ),
+            reply_markup=keyboard
+        )
     else:
         await message.answer("Please choose a valid option from the keyboard menu")
 
