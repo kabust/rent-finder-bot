@@ -70,12 +70,25 @@ def parse_olx(response: requests.Response) -> dict:
     item = BeautifulSoup(response.content, "html.parser")
     try:
         item_link = response.url
-        title = item.find("h4", {"class": "css-1kc83jo"}).text
-        price = item.find("h3", {"class": "css-90xrc0"}).text
+        try:
+            title = item.find("div", {"data-testid": "ad_title"}).text
+        except AttributeError:
+            logger.warning(f"Couldn't get title for {item_link}")
+            title = "N/A"
+        
+        try:
+            price = item.find("div", {"data-testid": "ad-price-container"}).text
+        except AttributeError:
+            logger.warning(f"Couldn't get price for {item_link}")
+            price = "N/A"
 
-        publication_time = convert_utc_to_local(
-            item.find("span", {"data-cy": "ad-posted-at"}).text.split(" o ")[-1]
-        )
+        try:
+            publication_time = convert_utc_to_local(
+                item.find("span", {"data-cy": "ad-posted-at"}).text.split(" o ")[-1]
+            )
+        except AttributeError:
+            logger.warning(f"Couldn't get publication_time for {item_link}")
+            publication_time = "N/A"
 
         location = ", ".join(
             "".join(i.a.text.split(" - ")[-1])
@@ -84,13 +97,18 @@ def parse_olx(response: requests.Response) -> dict:
 
         features = list(
             reversed(
-                [item.text for item in item.find_all("p", {"class": "css-b5m1rv"})[:-1]]
+                [
+                    elem.text 
+                    for elem in item.find("div", {"data-testid": "qa-advert-slot"})
+                    .findAllNext("p", limit=11)[:-1]
+                ]
             )
         )
 
         try:
-            item_img = item.find("img")["srcset"].split(" ")[-2]
+            item_img = item.find("img", {"class": "css-1bmvjcs"})["srcset"].split(" ")[-2]
         except KeyError:
+            logger.warning(f"Couldn't get image for {item_link}")
             item_img = image_placeholder
 
         return {
@@ -113,23 +131,50 @@ def parse_otodom(response: requests.Response) -> dict:
     item = BeautifulSoup(response.content, "html.parser")
     try:
         item_link = response.url
-        title = item.find("h1", {"data-cy": "adPageAdTitle"}).text
-        price = item.find("strong", {"data-cy": "adPageHeaderPrice"}).text
-        location = item.find("a", {"class": "css-1jjm9oe e42rcgs1"}).text
-        publication_time = item.find(
-            "p", {"class": "e2md81j2 css-htq2ld"}
-        ).text.split(" ")[-1]
+
+        try:
+            title = item.find("h1", {"data-cy": "adPageAdTitle"}).text
+        except AttributeError as e:
+            logger.warning(f"Couldn't get title for {item_link}: {e}")
+            title = "N/A"
+        
+        try:
+            price = item.find("strong", {"data-cy": "adPageHeaderPrice"}).text
+        except AttributeError as e:
+            logger.warning(f"Couldn't get price for {item_link}: {e}")
+            price = "N/A"
+
+        try:
+            location = item.find("a", {"class": "css-1jjm9oe e42rcgs1"}).text
+        except AttributeError as e:
+            logger.warning(f"Couldn't get location for {item_link}: {e}")
+            location = "N/A"
+        
+        try:
+            publication_time = item.find(
+                "p", {"class": "e2md81j2 css-htq2ld"}
+            ).text.split(" ")[-1]
+        except AttributeError as e:
+            logger.warning(f"Couldn't get publication_time for {item_link}: {e}")
+            publication_time = "N/A"
+        
         features = [
             " ".join(sub.text for sub in feature.find_all("p"))
-            for feature in item.find_all("div", {"class": "css-t7cajz e15n0fyo1"})
+            for feature in item.find_all("div", {"class": "css-1xw0jqp eows69w1"})
         ]
 
-        surface = item.find("div", {"class": "css-1ftqasz"}).text
+        try:
+            surface = str(item.find(lambda tag: tag.name == "div" and "m²" in tag.text).string)
+        except Exception as e:
+            logger.warning(f"Couldn't get surface for {item_link}: {e}")
+            surface = "N/A"
+        
         features.append("Powierszchnia: " + surface)
 
         try:
-            item_img = item.find("picture").img["src"]
-        except KeyError:
+            item_img = item.find("picture").find_next("img")["src"]
+        except Exception as e:
+            logger.warning(f"Couldn't get image for {item_link}: {e}")
             item_img = image_placeholder
 
         return {

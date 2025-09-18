@@ -122,8 +122,6 @@ async def command_start_handler(
         user_id = message.from_user.id
     logger.info(f"Received /start from user {user_id}")
 
-    await message.answer("Menu keyboard added, check it out!", reply_markup=reply_kb)
-
     user = get_user(user_id)
     if not user:
         write_user(
