@@ -88,9 +88,13 @@ def parse_olx(response: requests.Response) -> dict:
         title = item.find("div", {"data-cy": "offer_title"}).text
         price = item.find("div", {"data-testid": "ad-price-container"}).text.lower().split(" do negocjacji")[0]
 
-        publication_time = convert_utc_to_local(
-            item.find("span", {"data-cy": "ad-posted-at"}).text.split(" o ")[-1]
-        )
+        try:
+            publication_time = convert_utc_to_local(
+                item.find("span", {"data-cy": "ad-posted-at"}).text.split(" o ")[-1]
+            )
+        except AttributeError:
+            logger.warning(f"Couldn't get publication_time for {item_link}")
+            publication_time = "N/A"
 
         location = ", ".join(
             "".join(i.a.text.split(" - ")[-1])
@@ -109,8 +113,9 @@ def parse_olx(response: requests.Response) -> dict:
             ))
 
         try:
-            item_img = item.find("img")["srcset"].split(" ")[-2]
+            item_img = item.find("img", {"class": "css-1bmvjcs"})["srcset"].split(" ")[-2]
         except KeyError:
+            logger.warning(f"Couldn't get image for {item_link}")
             item_img = image_placeholder
 
         return {
@@ -150,8 +155,9 @@ def parse_otodom(response: requests.Response) -> dict:
         ]
 
         try:
-            item_img = item.find("picture").img["src"]
-        except KeyError:
+            item_img = item.find("picture").find_next("img")["src"]
+        except Exception as e:
+            logger.warning(f"Couldn't get image for {item_link}: {e}")
             item_img = image_placeholder
 
         return {
