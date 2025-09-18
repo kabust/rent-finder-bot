@@ -1,62 +1,42 @@
-import sqlite3
-
-
-con = sqlite3.connect("db.sqlite")
-con.row_factory = sqlite3.Row
-cur = con.cursor()
-
-cur.execute(
-    """
-    CREATE TABLE IF NOT EXISTS users(
-        user_id INTEGER NOT NULL,
-        chat_id INTEGER NOT NULL,
-        full_name VARCHAR(50), 
-        username VARCHAR(50), 
-        is_bot BOOLEAN, 
-        city VARCHAR(50), 
-        PRIMARY KEY(user_id)
-    )
-    """
+from sqlalchemy import (
+    create_engine, Column, Integer, String, Boolean, DateTime
 )
-
-cur.execute(
-    """
-    CREATE TABLE IF NOT EXISTS sent_ads(
-        id INTEGER PRIMARY KEY NOT NULL,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-        user_id INTEGER NOT NULL,
-        olx_link STRING NOT NULL
-    )
-    """
-)
-
-con.commit()
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from datetime import datetime
 
 
+DATABASE_URL = "sqlite:///db.sqlite"
+
+engine = create_engine(DATABASE_URL, echo=True)
+SessionLocal = sessionmaker(bind=engine)
+Base = declarative_base()
+
+
+class User(Base):
+    __tablename__ = "users"
+    user_id = Column(Integer, primary_key=True, nullable=False)
+    chat_id = Column(Integer, nullable=False)
+    full_name = Column(String(50))
+    username = Column(String(50))
+    is_bot = Column(Boolean)
+    city = Column(String(50))
+    is_active = Column(Boolean, nullable=False, default=True)
+    building_type_filter = Column(String(50), nullable=True, default="mieszkania")
+    ad_type_filter = Column(String(50), nullable=True, default="wynajem")
+    min_price_filter = Column(Integer, nullable=True)
+    max_price_filter = Column(Integer, nullable=True)
+    min_surface_area_filter = Column(Integer, nullable=True)
+
+
+class SentAd(Base):
+    __tablename__ = "sent_ads"
+    id = Column(Integer, primary_key=True, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    user_id = Column(Integer, nullable=False)
+    olx_link = Column(String, nullable=False)
+
+
+# Create tables (for development only; use Alembic for migrations in production)
 if __name__ == "__main__":
-    cur.execute("DROP TABLE users_new")
-    cur.execute(
-        """
-        CREATE TABLE users_new(
-            user_id INTEGER NOT NULL,
-            chat_id INTEGER NOT NULL,
-            full_name VARCHAR(50), 
-            username VARCHAR(50), 
-            is_active BOOLEAN NOT NULL DEFAULT 1,
-            is_bot BOOLEAN, 
-            city VARCHAR(50), 
-            PRIMARY KEY(user_id)
-        )
-        """
-    )
-    cur.execute(
-        """
-        INSERT INTO users_new (user_id, chat_id, full_name, username, is_active, is_bot, city)
-        SELECT user_id, chat_id, full_name, username, 1, is_bot, city
-        FROM users
-        """
-    )
-    cur.execute("DROP TABLE users")
-    cur.execute("ALTER TABLE users_new RENAME TO users")
-
-    con.commit()
+    Base.metadata.create_all(bind=engine)

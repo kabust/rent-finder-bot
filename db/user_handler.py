@@ -1,30 +1,36 @@
-from db.config import con, cur
+from db.config import SessionLocal, User
 
 
 def get_user(user_id: int):
-    user = cur.execute("SELECT * FROM users WHERE user_id = (?)", [user_id])
-    return user.fetchone()
+    session = SessionLocal()
+    user = session.query(User).filter(User.user_id == user_id).first()
+    session.close()
+    return user
 
 
 def get_user_by_chat_id(chat_id: int):
-    user = cur.execute("SELECT * FROM users WHERE chat_id = (?)", [chat_id])
-    return user.fetchone()
+    session = SessionLocal()
+    user = session.query(User).filter(User.chat_id == chat_id).first()
+    session.close()
+    return user
 
 
 def get_all_users():
-    users = cur.execute("SELECT * FROM users")
-    return users.fetchall()
+    session = SessionLocal()
+    users = session.query(User).all()
+    session.close()
+    return users
 
 
 def get_all_active_users_with_city():
-    users = cur.execute(
-        """
-        SELECT user_id, chat_id, city 
-        FROM users 
-        WHERE city IS NOT NULL AND is_active = 1 AND is_bot = 0
-        """
-    )
-    return users.fetchall()
+    session = SessionLocal()
+    users = session.query(User).filter(
+        User.city.isnot(None),
+        User.is_active == True,
+        User.is_bot == False
+    ).with_entities(User.user_id, User.chat_id, User.city).all()
+    session.close()
+    return users
 
 
 def write_user(
@@ -35,38 +41,56 @@ def write_user(
     is_bot: bool,
     city: str | None = None,
 ):
-    user = cur.execute(
-        "INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [user_id, chat_id, full_name, username, 1, is_bot, city],
+    session = SessionLocal()
+    user = User(
+        user_id=user_id,
+        chat_id=chat_id,
+        full_name=full_name,
+        username=username,
+        is_bot=is_bot,
+        city=city,
+        is_active=True
     )
-
-    con.commit()
-    return user.fetchone()
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    session.close()
+    return user
 
 
 def delete_user(user_id: int):
-    cur.execute("DELETE FROM users WHERE id = (?)", [user_id])
-    con.commit()
+    session = SessionLocal()
+    session.query(User).filter(User.user_id == user_id).delete()
+    session.commit()
+    session.close()
 
 
 def activate_user(user_id: int):
-    cur.execute("UPDATE users SET is_active = 1 WHERE user_id = (?)", [user_id])
-    con.commit()
+    session = SessionLocal()
+    session.query(User).filter(User.user_id == user_id).update({"is_active": True})
+    session.commit()
+    session.close()
 
 
 def deactivate_user(user_id: int):
-    cur.execute("UPDATE users SET is_active = 0 WHERE user_id = (?)", [user_id])
-    con.commit()
+    session = SessionLocal()
+    session.query(User).filter(User.user_id == user_id).update({"is_active": False})
+    session.commit()
+    session.close()
 
 
 def update_user_city(user_id: int, new_city: str):
-    cur.execute("UPDATE users SET city = (?) WHERE user_id = (?)", [new_city, user_id])
-    con.commit()
+    session = SessionLocal()
+    session.query(User).filter(User.user_id == user_id).update({"city": new_city})
+    session.commit()
+    session.close()
 
 
 def get_unique_cities():
-    query = cur.execute(
-        "SELECT DISTINCT city FROM users WHERE city IS NOT NULL AND is_active = 1"
-    )
-    cities = set(raw["city"] for raw in query.fetchall())
-    return cities
+    session = SessionLocal()
+    cities = session.query(User.city).filter(
+        User.city.isnot(None),
+        User.is_active == True
+    ).distinct().all()
+    session.close()
+    return set(city for (city,) in cities if city)

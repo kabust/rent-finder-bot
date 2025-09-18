@@ -1,32 +1,32 @@
-from calendar import month
 from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
 
-from db.config import con, cur
+from db.config import SessionLocal, SentAd
 
 
-def write_ad(user_id: int, olx_link: str) -> dict:
-    ad = cur.execute(
-        "INSERT INTO sent_ads(user_id, olx_link) VALUES (?, ?)",
-        [user_id, olx_link],
-    )
+def write_ad(user_id: int, olx_link: str) -> SentAd:
+    session = SessionLocal()
+    ad = SentAd(user_id=user_id, olx_link=olx_link)
+    session.add(ad)
+    session.commit()
+    session.refresh(ad)
+    session.close()
+    return ad
 
-    con.commit()
-    return ad.fetchone()
 
-
-def filter_ads(user_id: int) -> list[dict]:
-    ads = cur.execute("SELECT olx_link FROM sent_ads WHERE user_id = (?)", [user_id])
-    return [ad["olx_link"] for ad in ads.fetchall()]
+def filter_ads(user_id: int) -> list[str]:
+    session = SessionLocal()
+    ads = session.query(SentAd).filter(SentAd.user_id == user_id).all()
+    session.close()
+    return [ad.olx_link for ad in ads]
 
 
 def delete_old_records() -> None:
-    timestamp_threshold = (
-        datetime.now(tz=timezone.utc) - relativedelta(months=1)
-    ).strftime("%Y-%m-%d %H:%M:%S")
-
-    cur.execute("DELETE FROM sent_ads WHERE timestamp < (?)", [timestamp_threshold])
-    con.commit()
+    session = SessionLocal()
+    timestamp_threshold = datetime.now(tz=timezone.utc) - relativedelta(months=1)
+    session.query(SentAd).filter(SentAd.timestamp < timestamp_threshold).delete()
+    session.commit()
+    session.close()
 
 
 if __name__ == "__main__":

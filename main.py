@@ -66,13 +66,13 @@ async def send_scheduled_message():
                 logger.warning(e)
 
         logger.info("All users were processed")
-        await asyncio.sleep(180)
+        await asyncio.sleep(60)
 
 
-async def send_items(user: dict, items: dict) -> None:
+async def send_items(user, items: dict) -> None:
     ads_count = 0
-    city = user["city"]
-    for item in items.get(city):
+    city = user.city
+    for item in items.get(city, []):
         title = item["title"]
         price = item["price"]
         location = item["location"][:40] + "..." if len(item["location"]) > 40 else item["location"]
@@ -81,7 +81,7 @@ async def send_items(user: dict, items: dict) -> None:
         item_link = item["item_link"]
         item_img = item["item_img"]
 
-        ads_seen_by_user = filter_ads(user["user_id"])
+        ads_seen_by_user = filter_ads(user.user_id)
 
         if item_link in ads_seen_by_user:
             continue
@@ -91,13 +91,13 @@ async def send_items(user: dict, items: dict) -> None:
             \nFeatures: \n{features}"
 
             await bot.send_photo(
-                chat_id=user["chat_id"],
+                chat_id=user.chat_id,
                 photo=item_img,
                 caption=text
             )
-            write_ad(user["user_id"], item_link)
+            write_ad(user.user_id, item_link)
             ads_count += 1
-    logger.info(f"Sent {ads_count} items for user {user['user_id']}")
+    logger.info(f"Sent {ads_count} items for user {user.user_id}")
 
 
 @dp.message(CommandStart())
@@ -141,9 +141,9 @@ async def command_start_handler(
 
     else:
         activate_user(user_id)
-        city = user["city"] if user["city"] else "None"
+        city = user.city if user.city else "None"
         await message.answer(
-            f"Hi again, {html.bold(user['full_name'])}!\
+            f"Hi again, {html.bold(user.full_name)}!\
             \nYour city is already set to {city.capitalize()}",
             reply_markup=inline_kb.as_markup()
         )
@@ -198,7 +198,7 @@ async def send_message_by_admin(message: Message, state: FSMContext) -> None:
 @dp.message(Form.waiting_for_admin_message)
 async def send_message_to_users(message: Message, state: FSMContext):
     users = get_all_users()
-    tasks = [bot.send_message(user["chat_id"], message.text) for user in users]
+    tasks = [bot.send_message(user.chat_id, message.text) for user in users]
     await asyncio.gather(*tasks)
     await message.answer("Message sent successfully")
     await state.clear()
