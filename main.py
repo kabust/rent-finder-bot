@@ -9,20 +9,20 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart, Command
 from aiogram.types import (
-    Message, 
-    CallbackQuery, 
-    ReplyKeyboardRemove, 
-    ReplyKeyboardMarkup, 
+    Message,
+    CallbackQuery,
+    ReplyKeyboardRemove,
+    ReplyKeyboardMarkup,
     KeyboardButton,
     InlineKeyboardMarkup,
-    InlineKeyboardButton
+    InlineKeyboardButton,
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from dotenv import load_dotenv
 
 from db.user_handler import (
     activate_user,
-    deactivate_user, 
+    deactivate_user,
     delete_user,
     get_all_users,
     get_all_active_users_with_city,
@@ -103,7 +103,7 @@ async def send_items(user, items: dict[str, dict[str, list[dict]]]) -> None:
     min_price_filter = user.min_price_filter
     max_price_filter = user.max_price_filter
     min_surface_area_filter = user.min_surface_area_filter
-    
+
     if ad_type_filter:
         filtered_items_by_ad_type = items[city][ad_type_filter]
     else:
@@ -127,19 +127,28 @@ async def send_items(user, items: dict[str, dict[str, list[dict]]]) -> None:
         price_int = int("".join(char for char in price if char.isdigit()))
 
         if min_price_filter and price_int < min_price_filter:
-            logger.info(f"Skipping ad {title} due to min price filter ({min_price_filter}) > {price_int})")
+            logger.info(
+                f"Skipping ad {title} due to min price filter ({min_price_filter}) > {price_int})"
+            )
             continue
         if max_price_filter and price_int > max_price_filter:
-            logger.info(f"Skipping ad {title} due to max price filter ({max_price_filter}) < {price_int})")
+            logger.info(
+                f"Skipping ad {title} due to max price filter ({max_price_filter}) < {price_int})"
+            )
             continue
 
         if min_surface_area_filter and "Powierzchnia" in " ".join(item["features"]):
-            surface_area_str = next((feature for feature in item["features"] if "Powierzchnia" in feature), None)
+            surface_area_str = next(
+                (feature for feature in item["features"] if "Powierzchnia" in feature),
+                None,
+            )
             if surface_area_str:
                 try:
-                    surface_area = int(''.join(filter(str.isdigit, surface_area_str)))
+                    surface_area = int("".join(filter(str.isdigit, surface_area_str)))
                     if surface_area < min_surface_area_filter:
-                        logger.info(f"Skipping ad {title} due to min surface area filter ({min_surface_area_filter}) > {surface_area})")
+                        logger.info(
+                            f"Skipping ad {title} due to min surface area filter ({min_surface_area_filter}) > {surface_area})"
+                        )
                         continue
                 except ValueError:
                     logger.warning(f"Could not parse surface area from string: {surface_area_str}")
@@ -160,20 +169,14 @@ async def send_items(user, items: dict[str, dict[str, list[dict]]]) -> None:
             \n{price} | {location}\nPublished: {publication_time}\n \
             \nFeatures: \n{features}"
 
-            await bot.send_photo(
-                chat_id=user.chat_id,
-                photo=item_img,
-                caption=text
-            )
+            await bot.send_photo(chat_id=user.chat_id, photo=item_img, caption=text)
             write_ad(user.user_id, item_link)
             ads_count += 1
     logger.info(f"Sent {ads_count} items for user {user.user_id}")
 
 
 @dp.message(CommandStart())
-async def command_start_handler(
-        message: Message, state: FSMContext, user_id: int = None
-) -> None:
+async def command_start_handler(message: Message, state: FSMContext, user_id: int = None) -> None:
     """
     This handler receives messages with `/start` command
     """
@@ -185,7 +188,7 @@ async def command_start_handler(
             [KeyboardButton(text="Update City"), KeyboardButton(text="Pause")],
             [KeyboardButton(text="Filters")],
         ],
-        resize_keyboard=True
+        resize_keyboard=True,
     )
 
     if not user_id:
@@ -215,7 +218,7 @@ async def command_start_handler(
         await message.answer(
             f"Hi again, {html.bold(user.full_name)}!\
             \nYour city is already set to {city.capitalize()}",
-            reply_markup=inline_kb.as_markup()
+            reply_markup=inline_kb.as_markup(),
         )
 
     if not hasattr(dp, "scheduled_task"):
@@ -225,7 +228,7 @@ async def command_start_handler(
 
 @dp.message(Command("update_city"))
 async def command_update_city_handler(
-        message: Message, state: FSMContext, user_id: int = None
+    message: Message, state: FSMContext, user_id: int = None
 ) -> None:
     """
     This handler receives messages with `/update_city` command
@@ -286,7 +289,7 @@ async def set_city(message: Message, state: FSMContext) -> None:
     if not is_city_valid:
         await message.answer(
             f"I couldn't set the city to {city} because it wasn't found on OLX, try again",
-            reply_markup=inline_kb.as_markup()
+            reply_markup=inline_kb.as_markup(),
         )
     else:
         update_user_city(message.from_user.id, city_normalized)
@@ -302,7 +305,11 @@ async def set_filter_value(message: Message, state: FSMContext):
     data = await state.get_data()
     filter_type = data.get("filter_type")
 
-    if filter_type in ("min_price_filter", "max_price_filter", "min_surface_area_filter"):
+    if filter_type in (
+        "min_price_filter",
+        "max_price_filter",
+        "min_surface_area_filter",
+    ):
         if not message.text.isdigit():
             await message.answer("Please provide a valid number")
             return
@@ -330,38 +337,69 @@ async def handle_callback_query(callback: CallbackQuery, state: FSMContext):
         await command_start_handler(callback.message, state, user_id)
         await callback.message.delete()
     elif callback.data == "ad_type_filter":
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [
-                InlineKeyboardButton(text="Wynajem", callback_data="filter__ad_type_filter__wynajem"),
-                InlineKeyboardButton(text="Sprzedaz", callback_data="filter__ad_type_filter__sprzedaz")
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="Wynajem", callback_data="filter__ad_type_filter__wynajem"
+                    ),
+                    InlineKeyboardButton(
+                        text="Sprzedaz",
+                        callback_data="filter__ad_type_filter__sprzedaz",
+                    ),
+                ]
             ]
-        ])
+        )
         await callback.message.delete()
         await callback.message.answer("Choose the ad type", reply_markup=keyboard)
     elif callback.data == "building_type_filter":
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [
-                InlineKeyboardButton(text="Mieszkania", callback_data="filter__building_type_filter__mieszkania"),
-                InlineKeyboardButton(text="Domy", callback_data="filter__building_type_filter__domy"),
-                InlineKeyboardButton(text="Biura i Lokale", callback_data="filter__building_type_filter__biura-lokale"),
-                InlineKeyboardButton(text="Stancje i Pokoje", callback_data="filter__building_type_filter__stancje-pokoje"),
-                InlineKeyboardButton(text="Wszystkie", callback_data="filter__building_type_filter__None"),
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="Mieszkania",
+                        callback_data="filter__building_type_filter__mieszkania",
+                    ),
+                    InlineKeyboardButton(
+                        text="Domy", callback_data="filter__building_type_filter__domy"
+                    ),
+                    InlineKeyboardButton(
+                        text="Biura i Lokale",
+                        callback_data="filter__building_type_filter__biura-lokale",
+                    ),
+                    InlineKeyboardButton(
+                        text="Stancje i Pokoje",
+                        callback_data="filter__building_type_filter__stancje-pokoje",
+                    ),
+                    InlineKeyboardButton(
+                        text="Wszystkie",
+                        callback_data="filter__building_type_filter__None",
+                    ),
+                ]
             ]
-        ])
+        )
         await callback.message.delete()
         await callback.message.answer("Choose the ad type", reply_markup=keyboard)
-    elif callback.data in ("min_price_filter", "max_price_filter", "min_surface_area_filter"):
+    elif callback.data in (
+        "min_price_filter",
+        "max_price_filter",
+        "min_surface_area_filter",
+    ):
         await state.set_state(Form.waiting_for_filter_value)
         await state.update_data(filter_type=callback.data)
         await callback.message.delete()
-        await callback.message.answer(f"Please, provide the value for {callback.data.replace('_', ' ')}")
+        await callback.message.answer(
+            f"Please, provide the value for {callback.data.replace('_', ' ')}"
+        )
     elif callback.data.startswith("filter"):
         filter_type, value = callback.data.split("__")[1:]
         if value == "None":
             value = None
         update_user_filter(user_id, filter_type, value)
         await callback.message.delete()
-        await callback.message.answer(f"Your <em>{filter_type.replace("_", " ")}</em> is set to {value}")
+        await callback.message.answer(
+            f"Your <em>{filter_type.replace("_", " ")}</em> is set to {value}"
+        )
 
 
 @dp.message()
@@ -372,17 +410,24 @@ async def handle_reply(message: Message, state: FSMContext):
         await command_pause_handler(message)
     elif message.text == "Filters":
         user = get_user(message.from_user.id)
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [
-                InlineKeyboardButton(text="Ad Type", callback_data="ad_type_filter"),
-                InlineKeyboardButton(text="Building Type", callback_data="building_type_filter")
-            ],
-            [
-                InlineKeyboardButton(text="Min Price", callback_data="min_price_filter"),
-                InlineKeyboardButton(text="Max Price", callback_data="max_price_filter"),
-                InlineKeyboardButton(text="Min Surface Area (m2)", callback_data="min_surface_area_filter")
-            ],
-        ])
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="Ad Type", callback_data="ad_type_filter"),
+                    InlineKeyboardButton(
+                        text="Building Type", callback_data="building_type_filter"
+                    ),
+                ],
+                [
+                    InlineKeyboardButton(text="Min Price", callback_data="min_price_filter"),
+                    InlineKeyboardButton(text="Max Price", callback_data="max_price_filter"),
+                    InlineKeyboardButton(
+                        text="Min Surface Area (m2)",
+                        callback_data="min_surface_area_filter",
+                    ),
+                ],
+            ]
+        )
         await message.answer(
             (
                 "<strong>Your current filters:</strong>\n"
@@ -393,7 +438,7 @@ async def handle_reply(message: Message, state: FSMContext):
                 f"Min surface area (m2): {user.min_surface_area_filter}\n"
                 "Choose what filter you want to set"
             ),
-            reply_markup=keyboard
+            reply_markup=keyboard,
         )
     else:
         await message.answer("Please choose a valid option from the keyboard menu")

@@ -13,50 +13,48 @@ from utils import convert_utc_to_local
 
 load_dotenv()
 url_template = os.getenv("OLX_URL")
-image_placeholder = (
-    "https://archive.org/download/placeholder-image/placeholder-image.jpg"
-)
+image_placeholder = "https://archive.org/download/placeholder-image/placeholder-image.jpg"
 
 
 async def get_last_n_items(
-        city: str,
-        building_types: list[str] = ["mieszkania", "domy", "biura-lokale", "stancje-pokoje"],
-        ad_types: list[str] = ["wynajem", "sprzedaz"],
-        n: int = 10
-    ) -> tuple[str, dict[str, dict[str, list[dict]]]]:
+    city: str,
+    building_types: list[str] = [
+        "mieszkania",
+        "domy",
+        "biura-lokale",
+        "stancje-pokoje",
+    ],
+    ad_types: list[str] = ["wynajem", "sprzedaz"],
+    n: int = 10,
+) -> tuple[str, dict[str, dict[str, list[dict]]]]:
     loop = asyncio.get_event_loop()
     start_time = time.time()
 
     url_tasks = [
         loop.run_in_executor(
-            None, 
-            lambda url: requests.get(url), 
-            url_template.format(
-                city=city, 
-                building_type=building_type, 
-                ad_type=ad_type
-            )
+            None,
+            lambda url: requests.get(url),
+            url_template.format(city=city, building_type=building_type, ad_type=ad_type),
         )
         for building_type in building_types
         for ad_type in ad_types
     ]
     url_responses = await asyncio.gather(*url_tasks, return_exceptions=True)
-    
+
     items = {}
     for i, ad_type in enumerate(ad_types):
         items[ad_type] = {}
         for j, building_type in enumerate(building_types):
-            items[ad_type][building_type] = (
-                BeautifulSoup(url_responses[i + j].content, "html.parser")
-                .select("div[data-testid='l-card']:not([style*='display: none !important'])")
-            )
+            items[ad_type][building_type] = BeautifulSoup(
+                url_responses[i + j].content, "html.parser"
+            ).select("div[data-testid='l-card']:not([style*='display: none !important'])")
 
     links = {}
     for ad_type in ad_types:
         links[ad_type] = {}
         for building_type in building_types:
             links[ad_type][building_type] = []
-            for item in items[ad_type][building_type][:n + 1]:
+            for item in items[ad_type][building_type][: n + 1]:
                 try:
                     if item.select_one("[class=css-1dyfc0k]"):
                         continue
@@ -86,7 +84,7 @@ async def get_last_n_items(
                 loop.run_in_executor(None, lambda x: requests.get(x, headers=headers), link)
                 for link in links[ad_type][building_type]
             ]
-    
+
     item_responses = {}
     for ad_type in ad_types:
         item_responses[ad_type] = {}
@@ -127,7 +125,11 @@ def parse_olx(response: requests.Response) -> dict:
     try:
         item_link = response.url
         title = item.find("div", {"data-cy": "offer_title"}).text
-        price = item.find("div", {"data-testid": "ad-price-container"}).text.lower().split(" do negocjacji")[0]
+        price = (
+            item.find("div", {"data-testid": "ad-price-container"})
+            .text.lower()
+            .split(" do negocjacji")[0]
+        )
 
         try:
             publication_time = convert_utc_to_local(
@@ -142,16 +144,18 @@ def parse_olx(response: requests.Response) -> dict:
             for i in item.find_all("li", {"data-testid": "breadcrumb-item"})[-2:]
         )
 
-        features = list(reversed(
+        features = list(
+            reversed(
                 [
-                    item.text 
+                    item.text
                     for item in (
-                        item
-                        .find("div", {"data-testid": "ad-parameters-container"})
-                        .find_all("p")[:-1]
+                        item.find("div", {"data-testid": "ad-parameters-container"}).find_all("p")[
+                            :-1
+                        ]
                     )
                 ]
-            ))
+            )
+        )
 
         try:
             item_img = item.find("img", {"class": "css-1bmvjcs"})["srcset"].split(" ")[-2]
@@ -170,9 +174,7 @@ def parse_olx(response: requests.Response) -> dict:
         }
 
     except Exception as e:
-        logger.exception(
-            f"Error during detailed OLX parsing: {e}, item URL: {response.url}"
-        )
+        logger.exception(f"Error during detailed OLX parsing: {e}, item URL: {response.url}")
 
 
 def parse_otodom(response: requests.Response) -> dict:
@@ -182,14 +184,15 @@ def parse_otodom(response: requests.Response) -> dict:
         title = item.find("h1", {"data-cy": "adPageAdTitle"}).text
         price = item.find("strong", {"data-cy": "adPageHeaderPrice"}).text
         location = item.find("div", {"data-sentry-component": "MapLink"}).find("a").text
-        publication_time = item.find(
-            "div", {"data-sentry-component": "AdHistoryBase"}
-        ).find("p").text.split(" ")[-1]
+        publication_time = (
+            item.find("div", {"data-sentry-component": "AdHistoryBase"})
+            .find("p")
+            .text.split(" ")[-1]
+        )
         features = [
             " ".join(sub.text for sub in feature.find_all("div"))
             for feature in (
-                item
-                .find("div", {"data-sentry-component": "AdDetailsBase"})
+                item.find("div", {"data-sentry-component": "AdDetailsBase"})
                 .find("div")
                 .find_all("div", {"data-sentry-element": "ItemGridContainer"})
             )
@@ -212,9 +215,7 @@ def parse_otodom(response: requests.Response) -> dict:
         }
 
     except Exception as e:
-        logger.exception(
-            f"Error during detailed Otodom parsing: {e}, item URL: {response.url}"
-        )
+        logger.exception(f"Error during detailed Otodom parsing: {e}, item URL: {response.url}")
 
 
 async def verify_city(city: str) -> bool:

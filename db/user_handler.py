@@ -24,11 +24,11 @@ def get_all_users():
 
 def get_all_active_users_with_city():
     session = SessionLocal()
-    users = session.query(User).filter(
-        User.city.isnot(None),
-        User.is_active == True,
-        User.is_bot == False
-    ).all()
+    users = (
+        session.query(User)
+        .filter(User.city.isnot(None), User.is_active == True, User.is_bot == False)
+        .all()
+    )
     session.close()
     return users
 
@@ -49,7 +49,7 @@ def write_user(
         username=username,
         is_bot=is_bot,
         city=city,
-        is_active=True
+        is_active=True,
     )
     session.add(user)
     session.commit()
@@ -97,19 +97,23 @@ def update_user_filter(user_id: int, filter_type: str, value: str):
 
 def get_unique_cities():
     session = SessionLocal()
-    cities = session.query(User.city).filter(
-        User.city.isnot(None),
-        User.is_active == True
-    ).distinct().all()
+    cities = (
+        session.query(User.city)
+        .filter(User.city.isnot(None), User.is_active == True)
+        .distinct()
+        .all()
+    )
     session.close()
     return set(city for (city,) in cities if city)
 
 
 def get_unique_building_types():
     session = SessionLocal()
-    building_types = session.query(User.building_type_filter).filter(
-        User.building_type_filter.isnot(None),
-        User.is_active == True
-    ).distinct().all()
+    building_types = (
+        session.query(User.building_type_filter)
+        .filter(User.building_type_filter.isnot(None), User.is_active == True)
+        .distinct()
+        .all()
+    )
     session.close()
     return list(building_type for (building_type,) in building_types if building_type)
