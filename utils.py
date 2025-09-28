@@ -31,6 +31,4 @@ def remove_accents(text):
     # Normalize the text to separate accents from letters
     normalized_text = unicodedata.normalize("NFD", text)
     # Filter out the accent characters
-    return "".join(
-        char for char in normalized_text if unicodedata.category(char) != "Mn"
-    )
+    return "".join(char for char in normalized_text if unicodedata.category(char) != "Mn")

@@ -1,6 +1,4 @@
-from sqlalchemy import (
-    create_engine, Column, Integer, String, Boolean, DateTime
-)
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -8,7 +6,7 @@ from datetime import datetime
 
 DATABASE_URL = "sqlite:///db.sqlite"
 
-engine = create_engine(DATABASE_URL, echo=True)
+engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
