@@ -21,16 +21,17 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from dotenv import load_dotenv
 
 from db.user_handler import (
-    get_unique_cities,
-    write_user,
-    get_user,
-    delete_user,
-    update_user_city,
-    get_all_active_users_with_city,
     activate_user,
     deactivate_user, 
+    delete_user,
     get_all_users,
-    update_user_filter
+    get_all_active_users_with_city,
+    get_user,
+    get_unique_cities,
+    get_unique_building_types,
+    write_user,
+    update_user_city,
+    update_user_filter,
 )
 from db.sent_ads_handler import write_ad, filter_ads, delete_old_records
 from scraper import get_last_n_items, verify_city
@@ -60,18 +61,26 @@ async def send_scheduled_message():
         try:
             users = get_all_active_users_with_city()
             unique_cities = get_unique_cities()
+            unique_building_types = get_unique_building_types()
         except Exception as e:
             logger.exception(f"Error during getting users from DB: {e}")
-            await asyncio.sleep(60)
+            await asyncio.sleep(120)
             continue
 
-        logger.info(f"Getting ads for {len(unique_cities)} cities and sending to {len(users)} users")
+        logger.info(
+            f"Getting ads for {len(unique_cities)} cities with "
+            f"{len(unique_building_types)} building types and "
+            f"sending to {len(users)} users"
+        )
         items = {}
-        tasks = [get_last_n_items(city) for city in unique_cities]
+        if unique_building_types:
+            tasks = [get_last_n_items(city, unique_building_types) for city in unique_cities]
+        else:
+            tasks = [get_last_n_items(city) for city in unique_cities]
         for task in asyncio.as_completed(tasks):
             try:
-                city, result = await task
-                items[city] = result
+                city, results = await task
+                items[city] = results
             except Exception as e:
                 logger.exception(f"Error during requesting: {e}")
 
@@ -86,7 +95,7 @@ async def send_scheduled_message():
         await asyncio.sleep(60)
 
 
-async def send_items(user, items: dict) -> None:
+async def send_items(user, items: dict[str, dict[str, list[dict]]]) -> None:
     ads_count = 0
     city = user.city
     ad_type_filter = user.ad_type_filter
@@ -94,7 +103,25 @@ async def send_items(user, items: dict) -> None:
     min_price_filter = user.min_price_filter
     max_price_filter = user.max_price_filter
     min_surface_area_filter = user.min_surface_area_filter
-    for item in items.get(city, []):
+    
+    if ad_type_filter:
+        filtered_items_by_ad_type = items[city][ad_type_filter]
+    else:
+        filtered_items_by_ad_type = {}
+        for ad_type in items[city]:
+            filtered_items_by_ad_type[ad_type] = items[city][ad_type]
+
+    if building_type_filter:
+        filtered_items = filtered_items_by_ad_type[building_type_filter]
+    else:
+        filtered_items = []
+        for building_type in filtered_items_by_ad_type:
+            filtered_items.extend(filtered_items_by_ad_type[building_type])
+
+    del items
+    del filtered_items_by_ad_type
+
+    for item in filtered_items:
         title = item["title"]
         price = item["price"]
         price_int = int("".join(char for char in price if char.isdigit()))
@@ -314,9 +341,11 @@ async def handle_callback_query(callback: CallbackQuery, state: FSMContext):
     elif callback.data == "building_type_filter":
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text="Mieszkanie", callback_data="filter__building_type__mieszkanie"),
-                InlineKeyboardButton(text="Dom", callback_data="filter__building_type_filter__dom"),
-                InlineKeyboardButton(text="Both", callback_data="filter__building_type_filter__None"),
+                InlineKeyboardButton(text="Mieszkania", callback_data="filter__building_type_filter__mieszkania"),
+                InlineKeyboardButton(text="Domy", callback_data="filter__building_type_filter__domy"),
+                InlineKeyboardButton(text="Biura i Lokale", callback_data="filter__building_type_filter__biura-lokale"),
+                InlineKeyboardButton(text="Stancje i Pokoje", callback_data="filter__building_type_filter__stancje-pokoje"),
+                InlineKeyboardButton(text="Wszystkie", callback_data="filter__building_type_filter__None"),
             ]
         ])
         await callback.message.delete()

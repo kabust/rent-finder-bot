@@ -8,7 +8,7 @@ from datetime import datetime
 
 DATABASE_URL = "sqlite:///db.sqlite"
 
-engine = create_engine(DATABASE_URL, echo=True)
+engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 

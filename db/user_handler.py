@@ -103,3 +103,13 @@ def get_unique_cities():
     ).distinct().all()
     session.close()
     return set(city for (city,) in cities if city)
+
+
+def get_unique_building_types():
+    session = SessionLocal()
+    building_types = session.query(User.building_type_filter).filter(
+        User.building_type_filter.isnot(None),
+        User.is_active == True
+    ).distinct().all()
+    session.close()
+    return list(building_type for (building_type,) in building_types if building_type)

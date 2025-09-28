@@ -1,8 +1,9 @@
 import asyncio
 import os
-import requests
+import time
 from typing import Literal
 
+import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
@@ -19,66 +20,106 @@ image_placeholder = (
 
 async def get_last_n_items(
         city: str,
-        building_types: list[str] = ["mieszkania", "domy"],
+        building_types: list[str] = ["mieszkania", "domy", "biura-lokale", "stancje-pokoje"],
         ad_types: list[str] = ["wynajem", "sprzedaz"],
-        n: int = 20
-    ) -> tuple[str, list[dict]]:
-    items = []
+        n: int = 10
+    ) -> tuple[str, dict[str, dict[str, list[dict]]]]:
+    loop = asyncio.get_event_loop()
+    start_time = time.time()
 
-    for ad_type in ad_types:
-        for building_type in building_types:
-            url = url_template.format(
+    url_tasks = [
+        loop.run_in_executor(
+            None, 
+            lambda url: requests.get(url), 
+            url_template.format(
                 city=city, 
                 building_type=building_type, 
                 ad_type=ad_type
             )
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(None, requests.get, url)
-
-            response = BeautifulSoup(response.content, "html.parser")
-            items.extend(response.find_all("div", {"data-testid": "l-card"}))
-
-    links = []
-    for item in items[:n + 1]:
-        try:
-            if item.select_one("[class=css-1dyfc0k]"):
-                continue
-
-            item_url = item.find("a").get("href")
-            link = (
-                f"https://olx.pl/{item_url}"
-                if not item_url.startswith("https://www.otodom.pl")
-                else item_url
+        )
+        for building_type in building_types
+        for ad_type in ad_types
+    ]
+    url_responses = await asyncio.gather(*url_tasks, return_exceptions=True)
+    
+    items = {}
+    for i, ad_type in enumerate(ad_types):
+        items[ad_type] = {}
+        for j, building_type in enumerate(building_types):
+            items[ad_type][building_type] = (
+                BeautifulSoup(url_responses[i + j].content, "html.parser")
+                .select("div[data-testid='l-card']:not([style*='display: none !important'])")
             )
-            links.append(link)
 
-        except Exception as e:
-            logger.exception(f"Error during scraping links: {e}")
+    links = {}
+    for ad_type in ad_types:
+        links[ad_type] = {}
+        for building_type in building_types:
+            links[ad_type][building_type] = []
+            for item in items[ad_type][building_type][:n + 1]:
+                try:
+                    if item.select_one("[class=css-1dyfc0k]"):
+                        continue
+
+                    item_url = item.find("a").get("href")
+                    link = (
+                        f"https://olx.pl/{item_url}"
+                        if not item_url.startswith("https://www.otodom.pl")
+                        else item_url
+                    )
+                    links[ad_type][building_type].append(link)
+
+                except Exception as e:
+                    logger.exception(f"Error during scraping links: {e}")
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/131.0.0.0 Safari/537.36"
     }
-    tasks = [
-        loop.run_in_executor(None, lambda x: requests.get(x, headers=headers), link)
-        for link in links
-    ]
-    responses = await asyncio.gather(*tasks, return_exceptions=True)
 
-    results = []
-    for response in responses:
-        item_url = response.url
-        if item_url.startswith("https://www.olx.pl"):
-            parsed_item = parse_olx(response)
-            results.append(parsed_item)
-        elif item_url.startswith("https://www.otodom.pl"):
-            parsed_item = parse_otodom(response)
-            results.append(parsed_item)
-        else:
-            logger.exception(f"Couldn't parse {item_url}")
+    item_tasks = {}
+    for ad_type in ad_types:
+        item_tasks[ad_type] = {}
+        for building_type in building_types:
+            item_tasks[ad_type][building_type] = [
+                loop.run_in_executor(None, lambda x: requests.get(x, headers=headers), link)
+                for link in links[ad_type][building_type]
+            ]
+    
+    item_responses = {}
+    for ad_type in ad_types:
+        item_responses[ad_type] = {}
+        for building_type in building_types:
+            item_responses[ad_type][building_type] = await asyncio.gather(
+                *item_tasks[ad_type][building_type], return_exceptions=True
+            )
 
-    return city, list(reversed(results))
+    end_time = time.time()
+    logger.info(f"Scraping took: {end_time - start_time} seconds")
+
+    start_time = time.time()
+    results = {}
+    for ad_type in ad_types:
+        results[ad_type] = {}
+        for building_type in building_types:
+            results[ad_type][building_type] = []
+            for response in item_responses[ad_type][building_type]:
+                item_url = response.url
+                if item_url.startswith("https://www.olx.pl"):
+                    parsed_item = parse_olx(response)
+                    results[ad_type][building_type].append(parsed_item)
+                elif item_url.startswith("https://www.otodom.pl"):
+                    parsed_item = parse_otodom(response)
+                    results[ad_type][building_type].append(parsed_item)
+                else:
+                    logger.exception(f"Couldn't parse {item_url}")
+            results[ad_type][building_type] = list(reversed(results[ad_type][building_type]))
+
+    end_time = time.time()
+    logger.info(f"Parsing took: {end_time - start_time} seconds")
+
+    return city, results
 
 
 def parse_olx(response: requests.Response) -> dict:
@@ -114,7 +155,7 @@ def parse_olx(response: requests.Response) -> dict:
 
         try:
             item_img = item.find("img", {"class": "css-1bmvjcs"})["srcset"].split(" ")[-2]
-        except KeyError:
+        except (KeyError, TypeError):
             logger.warning(f"Couldn't get image for {item_link}")
             item_img = image_placeholder
 
