@@ -141,7 +141,7 @@ def parse_olx(response: requests.Response) -> dict | None:
         except AttributeError:
             logger.warning(f"Couldn't get publication_time for {item_link}")
             publication_time = "N/A"
-        
+
         if isinstance(publication_time, dt_time):
             publication_time = publication_time.strftime("%H:%M")
         elif isinstance(publication_time, date):

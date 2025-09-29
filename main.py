@@ -148,7 +148,7 @@ async def send_items(user, items: dict[str, dict[str, list[dict]]]) -> None:
                 f"Skipping ad {title} due to max price filter ({max_price_filter}) < {price_int})"
             )
             continue
-        
+
         joined_features = " ".join(item["features"]).lower()
         if min_surface_area_filter and "powierzchnia" in joined_features:
             surface_area_str = next(
@@ -167,7 +167,9 @@ async def send_items(user, items: dict[str, dict[str, list[dict]]]) -> None:
                     logger.warning(f"Could not parse surface area from string: {surface_area_str}")
                     continue
 
-        if private_only_filter and ("prywatn" not in joined_features or "deweloper" not in joined_features):
+        if private_only_filter and (
+            "prywatn" not in joined_features or "deweloper" not in joined_features
+        ):
             logger.info(f"Skipping ad {title} due to private only filter")
             continue
 
@@ -411,7 +413,9 @@ async def handle_callback_query(callback: CallbackQuery, state: FSMContext):
             ]
         )
         await callback.message.delete()
-        await callback.message.answer("Do you want ads from private owners only?", reply_markup=keyboard)
+        await callback.message.answer(
+            "Do you want ads from private owners only?", reply_markup=keyboard
+        )
     elif callback.data in (
         "min_price_filter",
         "max_price_filter",
@@ -461,7 +465,7 @@ async def handle_reply(message: Message, state: FSMContext):
                         callback_data="min_surface_area_filter",
                     ),
                 ],
-                [                    
+                [
                     InlineKeyboardButton(text="Cancel", callback_data="cancel"),
                 ],
             ]
