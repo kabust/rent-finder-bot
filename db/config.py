@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 DATABASE_URL = "sqlite:///db.sqlite"
@@ -25,12 +25,13 @@ class User(Base):
     min_price_filter = Column(Integer, nullable=True)
     max_price_filter = Column(Integer, nullable=True)
     min_surface_area_filter = Column(Integer, nullable=True)
+    private_only_filter = Column(Boolean, nullable=True, default=False)
 
 
 class SentAd(Base):
     __tablename__ = "sent_ads"
     id = Column(Integer, primary_key=True, nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=datetime.now(timezone.utc), nullable=False)
     user_id = Column(Integer, nullable=False)
     olx_link = Column(String, nullable=False)
 

@@ -1,6 +1,7 @@
 import asyncio
 import os
 import time
+from datetime import date, time as dt_time
 from typing import Literal
 
 import requests
@@ -106,10 +107,12 @@ async def get_last_n_items(
                 item_url = response.url
                 if item_url.startswith("https://www.olx.pl"):
                     parsed_item = parse_olx(response)
-                    results[ad_type][building_type].append(parsed_item)
+                    if parsed_item:
+                        results[ad_type][building_type].append(parsed_item)
                 elif item_url.startswith("https://www.otodom.pl"):
                     parsed_item = parse_otodom(response)
-                    results[ad_type][building_type].append(parsed_item)
+                    if parsed_item:
+                        results[ad_type][building_type].append(parsed_item)
                 else:
                     logger.exception(f"Couldn't parse {item_url}")
             results[ad_type][building_type] = list(reversed(results[ad_type][building_type]))
@@ -120,7 +123,7 @@ async def get_last_n_items(
     return city, results
 
 
-def parse_olx(response: requests.Response) -> dict:
+def parse_olx(response: requests.Response) -> dict | None:
     item = BeautifulSoup(response.content, "html.parser")
     try:
         item_link = response.url
@@ -138,6 +141,14 @@ def parse_olx(response: requests.Response) -> dict:
         except AttributeError:
             logger.warning(f"Couldn't get publication_time for {item_link}")
             publication_time = "N/A"
+        
+        if isinstance(publication_time, dt_time):
+            publication_time = publication_time.strftime("%H:%M")
+        elif isinstance(publication_time, date):
+            if publication_time != date.today():
+                logger.warning(f"Publication date {publication_time} is not today, skipping")
+                return None
+            publication_time = publication_time.strftime("%B %d, %Y")
 
         location = ", ".join(
             "".join(i.a.text.split(" - ")[-1])
@@ -149,9 +160,7 @@ def parse_olx(response: requests.Response) -> dict:
                 [
                     item.text
                     for item in (
-                        item.find("div", {"data-testid": "ad-parameters-container"}).find_all("p")[
-                            :-1
-                        ]
+                        item.find("div", {"data-testid": "ad-parameters-container"}).find_all("p")
                     )
                 ]
             )

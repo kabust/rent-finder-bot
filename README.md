@@ -36,5 +36,11 @@ venv\Scripts\activate
 source venv/bin/activate
 
 pip install -r requirements.txt
+alembic upgrade head
 python -m main
+```
+
+To update your DB schema:
+```bash
+alembic revision --autogenerate -m "revision_description"
 ```

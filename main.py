@@ -41,7 +41,15 @@ from logger import logger
 
 load_dotenv()
 
-TOKEN = os.getenv("API_TOKEN")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
+
+if ENVIRONMENT == "production":
+    TOKEN = os.getenv("PROD_API_TOKEN")
+elif ENVIRONMENT in ("staging", "development"):
+    TOKEN = os.getenv("STAGING_API_TOKEN")
+else:
+    raise ValueError(f"Unknown ENVIRONMENT: {ENVIRONMENT}")
+
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 dp = Dispatcher()
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
@@ -59,7 +67,10 @@ async def send_scheduled_message():
         delete_old_records()
 
         try:
-            users = get_all_active_users_with_city()
+            if ENVIRONMENT == "development":
+                users = [get_user(ADMIN_ID)]
+            else:
+                users = get_all_active_users_with_city()
             unique_cities = get_unique_cities()
             unique_building_types = get_unique_building_types()
         except Exception as e:
