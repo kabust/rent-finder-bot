@@ -41,7 +41,15 @@ from logger import logger
 
 load_dotenv()
 
-TOKEN = os.getenv("API_TOKEN")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
+
+if ENVIRONMENT == "production":
+    TOKEN = os.getenv("PROD_API_TOKEN")
+elif ENVIRONMENT in ("staging", "development"):
+    TOKEN = os.getenv("STAGING_API_TOKEN")
+else:
+    raise ValueError(f"Unknown ENVIRONMENT: {ENVIRONMENT}")
+
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 dp = Dispatcher()
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
@@ -59,7 +67,10 @@ async def send_scheduled_message():
         delete_old_records()
 
         try:
-            users = get_all_active_users_with_city()
+            if ENVIRONMENT == "development":
+                users = [get_user(ADMIN_ID)]
+            else:
+                users = get_all_active_users_with_city()
             unique_cities = get_unique_cities()
             unique_building_types = get_unique_building_types()
         except Exception as e:
@@ -103,6 +114,7 @@ async def send_items(user, items: dict[str, dict[str, list[dict]]]) -> None:
     min_price_filter = user.min_price_filter
     max_price_filter = user.max_price_filter
     min_surface_area_filter = user.min_surface_area_filter
+    private_only_filter = user.private_only_filter
 
     if ad_type_filter:
         filtered_items_by_ad_type = items[city][ad_type_filter]
@@ -137,7 +149,8 @@ async def send_items(user, items: dict[str, dict[str, list[dict]]]) -> None:
             )
             continue
 
-        if min_surface_area_filter and "Powierzchnia" in " ".join(item["features"]):
+        joined_features = " ".join(item["features"]).lower()
+        if min_surface_area_filter and "powierzchnia" in joined_features:
             surface_area_str = next(
                 (feature for feature in item["features"] if "Powierzchnia" in feature),
                 None,
@@ -153,6 +166,12 @@ async def send_items(user, items: dict[str, dict[str, list[dict]]]) -> None:
                 except ValueError:
                     logger.warning(f"Could not parse surface area from string: {surface_area_str}")
                     continue
+
+        if private_only_filter and (
+            "prywatn" not in joined_features or "deweloper" not in joined_features
+        ):
+            logger.info(f"Skipping ad {title} due to private only filter")
+            continue
 
         location = item["location"][:40] + "..." if len(item["location"]) > 40 else item["location"]
         publication_time = item["publication_time"]
@@ -380,6 +399,23 @@ async def handle_callback_query(callback: CallbackQuery, state: FSMContext):
         )
         await callback.message.delete()
         await callback.message.answer("Choose the ad type", reply_markup=keyboard)
+    elif callback.data == "private_only_filter":
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="Yes", callback_data="filter__private_only_filter__True"
+                    ),
+                    InlineKeyboardButton(
+                        text="No", callback_data="filter__private_only_filter__False"
+                    ),
+                ]
+            ]
+        )
+        await callback.message.delete()
+        await callback.message.answer(
+            "Do you want ads from private owners only?", reply_markup=keyboard
+        )
     elif callback.data in (
         "min_price_filter",
         "max_price_filter",
@@ -395,6 +431,8 @@ async def handle_callback_query(callback: CallbackQuery, state: FSMContext):
         filter_type, value = callback.data.split("__")[1:]
         if value == "None":
             value = None
+        if value in ("True", "False"):
+            value = value == "True"
         update_user_filter(user_id, filter_type, value)
         await callback.message.delete()
         await callback.message.answer(
@@ -417,6 +455,7 @@ async def handle_reply(message: Message, state: FSMContext):
                     InlineKeyboardButton(
                         text="Building Type", callback_data="building_type_filter"
                     ),
+                    InlineKeyboardButton(text="Private only?", callback_data="private_only_filter"),
                 ],
                 [
                     InlineKeyboardButton(text="Min Price", callback_data="min_price_filter"),
@@ -425,6 +464,9 @@ async def handle_reply(message: Message, state: FSMContext):
                         text="Min Surface Area (m2)",
                         callback_data="min_surface_area_filter",
                     ),
+                ],
+                [
+                    InlineKeyboardButton(text="Cancel", callback_data="cancel"),
                 ],
             ]
         )
